@@ -1,19 +1,41 @@
 {
-	// Use IntelliSense to learn about possible attributes.
-	// Hover to view descriptions of existing attributes.
-	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	// Stream Deck: fixed inspector port (manifest Nodejs.Debug) + attach here.
+	// Cursor often does NOT resolve ${command:PickProcess}; use port attach or manual PID below.
 	"version": "0.2.0",
+	"inputs": [
+		{
+			"id": "nodePid",
+			"type": "promptString",
+			"description": "Node.js process ID (Windows: Task Manager Details tab, or: Get-Process node | Select-Object Id)",
+			"password": false
+		}
+	],
 	"configurations": [
 		{
-			"name": "Attach to Plugin",
+			"name": "Attach: Stream Deck plugin",
 			"type": "node",
 			"request": "attach",
-			"processId": "${command:PickProcess}",
+			"address": "127.0.0.1",
+			"port": 9229,
 			"outFiles": [
-				"${workspaceFolder}/bin/**/*.js"
+				"${workspaceFolder}/com.dadstart.baseball.sdPlugin/bin/**/*.js"
 			],
 			"resolveSourceMapLocations": [
-				"${workspaceFolder}/**"
+				"${workspaceFolder}/**",
+				"!**/node_modules/**"
+			]
+		},
+		{
+			"name": "Attach: Node by PID (manual)",
+			"type": "node",
+			"request": "attach",
+			"processId": "${input:nodePid}",
+			"outFiles": [
+				"${workspaceFolder}/com.dadstart.baseball.sdPlugin/bin/**/*.js"
+			],
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/**",
+				"!**/node_modules/**"
 			]
 		}
 	]
