@@ -4,25 +4,9 @@
 	"Author": "Dadstart",
 	"Actions": [
 		{
-			"Name": "Counter",
-			"UUID": "com.dadstart.baseball.increment",
-			"Icon": "imgs/actions/counter/icon",
-			"Tooltip": "Displays a count, which increments by one on press.",
-			"PropertyInspectorPath": "ui/increment-counter.html",
-			"Controllers": [
-				"Keypad"
-			],
-			"States": [
-				{
-					"Image": "imgs/actions/counter/key",
-					"TitleAlignment": "middle"
-				}
-			]
-		},
-		{
 			"Name": "Team Logo",
 			"UUID": "com.dadstart.baseball.teamlogo",
-			"Icon": "imgs/actions/counter/icon",
+			"Icon": "imgs/actions/team-logo/icon",
 			"Tooltip": "Show an MLB team logo from mlbstatic.com on press.",
 			"PropertyInspectorPath": "ui/mlb-team-logo.html",
 			"Controllers": [
@@ -30,7 +14,7 @@
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/counter/key",
+					"Image": "imgs/actions/team-logo/key",
 					"TitleAlignment": "middle"
 				}
 			]

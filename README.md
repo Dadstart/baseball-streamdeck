@@ -9,11 +9,11 @@ Baseball Stream Deck app
 │   ├── imgs/
 │   ├── logs/
 │   ├── ui/
-│   │   └── increment-counter.html
+│   │   └── mlb-team-logo.html
 │   └── manifest.json
 ├── src/
 │   ├── actions/
-│   │   └── increment-counter.ts
+│   │   └── mlb-team-logo.ts
 │   └── plugin.ts
 ├── package.json
 ├── rollup.config.mjs
