@@ -1,15 +1,32 @@
 /**
- * MLB team metadata (Stats API team id, abbreviation, full name, division).
+ * @module mlb/mlb-teams
+ *
+ * Offline catalog of the 30 MLB clubs for use in the plugin (Property Inspector labels,
+ * key titles, validation). Identifiers match the **MLB Stats API** `team.id` (integer),
+ * which is also what **mlbstatic.com** team logo URLs use.
+ *
+ * This module does not call the Stats API; update the list if franchises or ids change.
+ *
+ * @see https://statsapi.mlb.com/ — team ids from `/api/v1/teams`
+ */
+
+/**
+ * One club: numeric Stats API id, short code, full name, and division label for grouping.
  */
 export type MlbTeam = {
+	/** Stats API `team.id` (e.g. `147` for Yankees). */
 	readonly id: number;
+	/** Display abbreviation on keys / UI (e.g. `NYY`, `ATH`). */
 	readonly abbreviation: string;
+	/** Official club name; keys for {@link MLB_TEAM_BY_NAME}. */
 	readonly name: string;
+	/** Human-readable league / division (for optgroups or filters). */
 	readonly division: string;
 };
 
 /**
- * All 30 MLB clubs. Source: MLB Stats API team ids.
+ * All 30 MLB teams in arbitrary order; treat as source of truth for derived maps below.
+ * Keep in sync with Stats API ids used elsewhere (logos, future API calls).
  */
 export const MLB_TEAMS: readonly MlbTeam[] = [
 	{ id: 109, abbreviation: "AZ", name: "Arizona Diamondbacks", division: "National League West" },
@@ -44,29 +61,47 @@ export const MLB_TEAMS: readonly MlbTeam[] = [
 	{ id: 120, abbreviation: "WSH", name: "Washington Nationals", division: "National League East" },
 ] as const;
 
-/** Full team name → team (exact match). */
+/**
+ * Lookup by exact {@link MlbTeam.name} (e.g. `"New York Yankees"`).
+ */
 export const MLB_TEAM_BY_NAME: Readonly<Record<string, MlbTeam>> = Object.fromEntries(
 	MLB_TEAMS.map((t) => [t.name, t]),
 );
 
-/** Numeric Stats API id → team */
+/**
+ * Lookup by Stats API numeric id.
+ */
 export const MLB_TEAM_BY_ID: Readonly<Record<number, MlbTeam>> = Object.fromEntries(
 	MLB_TEAMS.map((t) => [t.id, t]),
 );
 
-/** Full team name → numeric id (exact match on {@link MlbTeam.name}). */
+/**
+ * Map full name → Stats API id; same keys as {@link MLB_TEAM_BY_NAME}.
+ */
 export const MLB_TEAM_ID_BY_NAME: Readonly<Record<string, number>> = Object.fromEntries(
 	MLB_TEAMS.map((t) => [t.name, t.id]),
 );
 
+/**
+ * @param name - Exact {@link MlbTeam.name}
+ * @returns The team row, or `undefined` if no match.
+ */
 export function getMlbTeamByName(name: string): MlbTeam | undefined {
 	return MLB_TEAM_BY_NAME[name];
 }
 
+/**
+ * @param name - Exact {@link MlbTeam.name}
+ * @returns Stats API team id, or `undefined` if no match.
+ */
 export function getMlbTeamIdByName(name: string): number | undefined {
 	return MLB_TEAM_ID_BY_NAME[name];
 }
 
+/**
+ * @param id - Stats API `team.id`
+ * @returns The team row, or `undefined` if id is unknown.
+ */
 export function getMlbTeamById(id: number): MlbTeam | undefined {
 	return MLB_TEAM_BY_ID[id];
 }

@@ -1,4 +1,19 @@
-import {
+/**
+ * @module actions/mlb-team-logo
+ *
+ * Stream Deck **key action** that shows MLB team logos from {@link ../services/mlb-logos.ts}.
+ *
+ * **Settings** (Property Inspector `mlb-team-logo.html`):
+ * - `team` — Stats API team id (`string` or `number` from sdpi-components).
+ * - `logoVariant` — one of {@link MlbLogoVariant} values.
+ *
+ * **Behavior:** On appear / settings change, loads the logo for the current variant. Each key press
+ * advances `logoVariant` in a fixed cycle (must merge full settings on `setSettings` so `team` is not dropped).
+ *
+ * **Display:** Uses `setImage` with an SVG data URL per Elgato SDK guidance; clears title when the logo shows.
+ */
+
+import streamDeck, {
 	action,
 	DidReceiveSettingsEvent,
 	KeyDownEvent,
@@ -6,49 +21,31 @@ import {
 	WillAppearEvent,
 	type KeyAction,
 } from "@elgato/streamdeck";
-import streamDeck from "@elgato/streamdeck";
 
-import { getMlbTeamById } from "../mlb-teams";
+import { getMlbTeamById } from "../mlb/mlb-teams";
+import {
+	DEFAULT_MLB_LOGO_VARIANT,
+	fetchMlbTeamLogoSvg,
+	MlbLogoVariant,
+	mlbTeamLogoUrl,
+} from "../services/mlb-logos";
 
-/** Base URL for SVGs: `…/team-logos/{variant}/{teamId}.svg` */
-const MLB_TEAM_LOGOS_BASE = "https://www.mlbstatic.com/team-logos";
+/** Press order for cycling; matches `Object.values` order of {@link MlbLogoVariant} and PI `<option>` order. */
+const LOGO_VARIANT_CYCLE: readonly MlbLogoVariant[] =
+	Object.values(MlbLogoVariant) as MlbLogoVariant[];
 
-export const MlbLogoVariant = {
-	TeamCapOnDark: "team-cap-on-dark",
-	TeamCapOnLight: "team-cap-on-light",
-	TeamPrimaryOnDark: "team-primary-on-dark",
-	TeamPrimaryOnLight: "team-primary-on-light",
-} as const;
-
-export type MlbLogoVariant =
-	(typeof MlbLogoVariant)[keyof typeof MlbLogoVariant];
-
-const DEFAULT_LOGO_VARIANT = MlbLogoVariant.TeamCapOnDark;
-
-/** Key-press order; matches Property Inspector options top-to-bottom. */
-const LOGO_VARIANT_CYCLE: readonly MlbLogoVariant[] = [
-	MlbLogoVariant.TeamCapOnDark,
-	MlbLogoVariant.TeamCapOnLight,
-	MlbLogoVariant.TeamPrimaryOnDark,
-	MlbLogoVariant.TeamPrimaryOnLight,
-];
-
-function nextCycledLogoVariant(current: MlbLogoVariant): MlbLogoVariant {
-	const i = LOGO_VARIANT_CYCLE.indexOf(current);
-	const idx = i === -1 ? 0 : (i + 1) % LOGO_VARIANT_CYCLE.length;
-	return LOGO_VARIANT_CYCLE[idx];
-}
+const KNOWN_LOGO_VARIANTS = new Set<string>(LOGO_VARIANT_CYCLE);
 
 /**
- * Settings for {@link MlbTeamLogo}.
- * `team` should be the MLB Stats API numeric team id (e.g. `"147"` for Yankees).
+ * Persisted per-key JSON. Keys must match Property Inspector `setting="..."` attributes.
  */
 type MlbLogoSettings = {
+	/** Stats API team id (PI may persist string or number). */
 	team?: string | number;
 	logoVariant?: MlbLogoVariant;
 };
 
-/** Normalize persisted `team` (PI may send string or number). */
+/** Trims string form of `settings.team`; empty if missing. */
 function teamIdString(settings: MlbLogoSettings): string {
 	const raw = settings.team;
 	if (raw === undefined || raw === null) {
@@ -57,53 +54,45 @@ function teamIdString(settings: MlbLogoSettings): string {
 	return String(raw).trim();
 }
 
+/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
+function isNumericTeamId(id: string): boolean {
+	return /^\d+$/.test(id);
+}
+
+/**
+ * Key title when not showing a loaded logo: abbreviation from {@link getMlbTeamById}, or fallbacks.
+ */
 function titleForMlbLogoSettings(settings: MlbLogoSettings): string {
-	const teamIdStr = teamIdString(settings);
-	if (!teamIdStr || !/^\d+$/.test(teamIdStr)) {
+	const id = teamIdString(settings);
+	if (!id || !isNumericTeamId(id)) {
 		return "Team?";
 	}
-	const id = Number(teamIdStr);
-	const meta = getMlbTeamById(id);
-	return meta?.abbreviation ?? teamIdStr;
+	return getMlbTeamById(Number(id))?.abbreviation ?? id;
 }
 
-function resolveLogoVariant(
-	value: string | undefined,
-): MlbLogoVariant {
-	if (
-		value !== undefined &&
-		(Object.values(MlbLogoVariant) as string[]).includes(value)
-	) {
+/** Maps stored string to a known variant, else {@link DEFAULT_MLB_LOGO_VARIANT}. */
+function resolveLogoVariant(value: string | undefined): MlbLogoVariant {
+	if (value !== undefined && KNOWN_LOGO_VARIANTS.has(value)) {
 		return value as MlbLogoVariant;
 	}
-	return DEFAULT_LOGO_VARIANT;
+	return DEFAULT_MLB_LOGO_VARIANT;
 }
 
-function mlbTeamLogoUrl(teamId: string, variant: MlbLogoVariant): string {
-	return `${MLB_TEAM_LOGOS_BASE}/${variant}/${teamId}.svg`;
+/** Next variant in {@link LOGO_VARIANT_CYCLE} (wraps). Unknown current falls back to index 0 then advances. */
+function nextCycledLogoVariant(current: MlbLogoVariant): MlbLogoVariant {
+	const i = LOGO_VARIANT_CYCLE.indexOf(current);
+	const idx = i === -1 ? 0 : (i + 1) % LOGO_VARIANT_CYCLE.length;
+	return LOGO_VARIANT_CYCLE[idx];
 }
 
-async function fetchMlbLogoSvg(url: string): Promise<string> {
-	const res = await fetch(url, {
-		headers: { Accept: "image/svg+xml,*/*" },
-	});
-	if (!res.ok) {
-		throw new Error(`HTTP ${res.status} for ${url}`);
-	}
-	const contentType = res.headers.get("content-type") ?? "";
-	if (!contentType.includes("svg") && !contentType.includes("text")) {
-		streamDeck.logger.warn(
-			`Unexpected Content-Type for logo: ${contentType}`,
-		);
-	}
-	return res.text();
-}
-
-/** Data URL form required by Stream Deck for dynamic SVGs (see SDK keys guide). */
+/** Encodes SVG for Stream Deck `setImage` (SDK recommends `data:image/svg+xml` + `encodeURIComponent`). */
 function svgDataUrlForStreamDeck(svg: string): string {
 	return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Fetches SVG from CDN, pushes to the key, clears title; on failure logs and sets a short error title.
+ */
 async function applyMlbTeamLogoToKey(
 	key: KeyAction<MlbLogoSettings>,
 	teamId: string,
@@ -111,7 +100,12 @@ async function applyMlbTeamLogoToKey(
 ): Promise<void> {
 	const url = mlbTeamLogoUrl(teamId, variant);
 	try {
-		const svg = await fetchMlbLogoSvg(url);
+		const svg = await fetchMlbTeamLogoSvg(teamId, variant, {
+			onUnexpectedContentType: (contentType) =>
+				streamDeck.logger.warn(
+					`Unexpected Content-Type for logo: ${contentType}`,
+				),
+		});
 		await key.setImage(svgDataUrlForStreamDeck(svg));
 		await key.setTitle("");
 	} catch (err) {
@@ -122,59 +116,70 @@ async function applyMlbTeamLogoToKey(
 }
 
 /**
- * Shows the selected MLB team logo (SVG from mlbstatic) on key press.
+ * Updates image/title from settings. When `normalizePersistedTeam` is true, rewrites `team` as a trimmed
+ * string if the stored value differed (e.g. number vs string) so PI and plugin stay aligned.
+ */
+async function updateKeyForSettings(
+	key: KeyAction<MlbLogoSettings>,
+	settings: MlbLogoSettings,
+	{ normalizePersistedTeam }: { normalizePersistedTeam: boolean },
+): Promise<void> {
+	const teamId = teamIdString(settings);
+	if (!teamId || !isNumericTeamId(teamId)) {
+		await key.setTitle(titleForMlbLogoSettings(settings));
+		return;
+	}
+	if (
+		normalizePersistedTeam &&
+		String(settings.team ?? "").trim() !== teamId
+	) {
+		await key.setSettings({ ...settings, team: teamId });
+	}
+	await applyMlbTeamLogoToKey(
+		key,
+		teamId,
+		resolveLogoVariant(settings.logoVariant),
+	);
+}
+
+/**
+ * Key action UUID `com.dadstart.baseball.teamlogo` (see manifest).
  */
 @action({ UUID: "com.dadstart.baseball.teamlogo" })
 export class MlbTeamLogo extends SingletonAction<MlbLogoSettings> {
+	/** Load or refresh logo when the key is shown; may normalize `team` in persisted settings. */
 	override async onWillAppear(
 		ev: WillAppearEvent<MlbLogoSettings>,
 	): Promise<void> {
 		if (!ev.action.isKey()) {
 			return;
 		}
-		const settings = ev.payload.settings;
-		const teamId = teamIdString(settings);
-		if (!teamId || !/^\d+$/.test(teamId)) {
-			await ev.action.setTitle(titleForMlbLogoSettings(settings));
-			return;
-		}
-		if (String(settings.team ?? "").trim() !== teamId) {
-			await ev.action.setSettings({ ...settings, team: teamId });
-		}
-		await applyMlbTeamLogoToKey(
-			ev.action,
-			teamId,
-			resolveLogoVariant(settings.logoVariant),
-		);
+		await updateKeyForSettings(ev.action, ev.payload.settings, {
+			normalizePersistedTeam: true,
+		});
 	}
 
-	/**
-	 * Runs when the Property Inspector saves settings (and on getSettings).
-	 * Without this, the key title stays whatever onWillAppear last set.
-	 */
-	override onDidReceiveSettings(
+	/** Refresh after Property Inspector saves (merge-aware: do not re-normalize `team` here). */
+	override async onDidReceiveSettings(
 		ev: DidReceiveSettingsEvent<MlbLogoSettings>,
-	): void | Promise<void> {
+	): Promise<void> {
 		if (!ev.action.isKey()) {
 			return;
 		}
-		const settings = ev.payload.settings;
-		const teamId = teamIdString(settings);
-		if (!teamId || !/^\d+$/.test(teamId)) {
-			return ev.action.setTitle(titleForMlbLogoSettings(settings));
-		}
-		return applyMlbTeamLogoToKey(
-			ev.action,
-			teamId,
-			resolveLogoVariant(settings.logoVariant),
-		);
+		await updateKeyForSettings(ev.action, ev.payload.settings, {
+			normalizePersistedTeam: false,
+		});
 	}
 
+	/**
+	 * Cycles `logoVariant`, merges settings (preserves `team`), fetches and displays the next logo.
+	 */
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbLogoSettings>,
 	): Promise<void> {
-		const teamId = teamIdString(ev.payload.settings);
-		if (!teamId || !/^\d+$/.test(teamId)) {
+		const settings = ev.payload.settings;
+		const teamId = teamIdString(settings);
+		if (!teamId || !isNumericTeamId(teamId)) {
 			await ev.action.setTitle("Set team id");
 			streamDeck.logger.warn(
 				`MlbTeamLogo: settings.team must be a numeric MLB team id (e.g. 147). Current value: ${teamId}`,
@@ -183,12 +188,9 @@ export class MlbTeamLogo extends SingletonAction<MlbLogoSettings> {
 		}
 
 		const variant = nextCycledLogoVariant(
-			resolveLogoVariant(ev.payload.settings.logoVariant),
+			resolveLogoVariant(settings.logoVariant),
 		);
-		await ev.action.setSettings({
-			...ev.payload.settings,
-			logoVariant: variant,
-		});
+		await ev.action.setSettings({ ...settings, logoVariant: variant });
 		await applyMlbTeamLogoToKey(ev.action, teamId, variant);
 	}
 }
