@@ -1,16 +1,20 @@
 /**
  * @module actions/mlb-game-score
  *
- * Stream Deck **key action** that shows the score for the selected team’s current game when **Live**,
- * otherwise the most recent **Final** game in the schedule window (see {@link ../services/mlb-schedule.ts}).
+ * Stream Deck **key action** that cycles through four views for the selected team (see
+ * {@link ../services/mlb-schedule.ts} {@link fetchMlbGameScoreCycleViews}):
  *
- * **Settings:** `team` — Stats API team id (`string` or `number` from Property Inspector).
+ * 1. **Next upcoming** — earliest non-final game (date + live/final scores, or date + matchup when Preview).
+ * 2–4. **Previous three games** — most recent finals, newest first (date + scores).
  *
- * **Behavior:** On appear / settings change / key press (with valid team), fetches schedule and sets a
- * two-line title. A background interval re-fetches every {@link REFRESH_MS}. Team id is trimmed and
- * normalized to a string when persisted value differs (e.g. number vs string).
+ * **Settings:** `team` — Stats API team id (`string` or `number`). `scoreViewIndex` — `0…3` (persisted;
+ * advanced with each key press).
  *
- * **Display:** Uses `setTitle` with lines from {@link formatGameScoreTitle} or short fallbacks (`Team?`, `—`, errors).
+ * **Behavior:** On appear / settings change, shows the view for the current index. **Key press** cycles
+ * the index (with `setSettings` merge so `team` is preserved). Poll interval re-fetches using the saved index.
+ * Team id is trimmed when persisted value differs from trimmed form.
+ *
+ * **Display:** {@link formatMlbCycleGameTitle} and short fallbacks (`Team?`, `—`, errors).
  */
 
 import streamDeck, {
@@ -25,19 +29,24 @@ import streamDeck, {
 
 import { getMlbTeamById } from "../mlb/mlb-teams";
 import {
-	fetchTeamScorePick,
-	formatGameScoreTitle,
+	fetchMlbGameScoreCycleViews,
+	formatMlbCycleGameTitle,
 } from "../services/mlb-schedule";
 
-/** Poll interval so live scores update without requiring a key press. */
+/** Poll interval so live / upcoming data updates without requiring a key press. */
 const REFRESH_MS = 45_000;
 
+/** Slots: upcoming, then three prior finals. */
+const SCORE_VIEW_SLOT_COUNT = 4;
+
 /**
- * Persisted per-key JSON. Keys must match Property Inspector `setting="..."` attributes.
+ * Persisted per-key JSON. Keys must match Property Inspector `setting="..."` attributes where applicable.
  */
 type MlbGameScoreSettings = {
 	/** Stats API team id (PI may persist string or number). */
 	team?: string | number;
+	/** Cycle position `0…{@link SCORE_VIEW_SLOT_COUNT} - 1`; unset means `0`. */
+	scoreViewIndex?: number;
 };
 
 /** Trims string form of `settings.team`; empty if missing. */
@@ -70,6 +79,15 @@ function titleForMlbGameScoreSettings(settings: MlbGameScoreSettings): string {
 	return abbrevForNumericTeamId(Number(id), id);
 }
 
+function resolveScoreViewIndex(settings: MlbGameScoreSettings): number {
+	const raw = settings.scoreViewIndex ?? 0;
+	const n = Math.floor(Number(raw));
+	if (!Number.isFinite(n)) {
+		return 0;
+	}
+	return ((n % SCORE_VIEW_SLOT_COUNT) + SCORE_VIEW_SLOT_COUNT) % SCORE_VIEW_SLOT_COUNT;
+}
+
 const refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 function clearRefreshTimer(context: string): void {
@@ -81,7 +99,7 @@ function clearRefreshTimer(context: string): void {
 }
 
 /**
- * Fetches schedule, sets title from {@link formatGameScoreTitle} or fallbacks; on failure logs and shows a short error title.
+ * Fetches schedule views, formats the title for {@link resolveScoreViewIndex}; on failure logs and shows a short error title.
  */
 async function applyScoreToKey(
 	key: KeyAction<MlbGameScoreSettings>,
@@ -93,13 +111,26 @@ async function applyScoreToKey(
 		return;
 	}
 	const idNum = Number(teamId);
+	const slot = resolveScoreViewIndex(settings);
+	const abbrLine = abbrevForNumericTeamId(idNum, teamId);
 	try {
-		const pick = await fetchTeamScorePick(idNum);
-		if (pick.kind === "none") {
-			await key.setTitle(`${abbrevForNumericTeamId(idNum, teamId)}\n—`);
+		const views = await fetchMlbGameScoreCycleViews(idNum);
+		if (slot === 0) {
+			if (!views.upcoming) {
+				await key.setTitle(`${abbrLine}\n—`);
+				return;
+			}
+			await key.setTitle(
+				formatMlbCycleGameTitle(views.upcoming, "upcoming"),
+			);
 			return;
 		}
-		await key.setTitle(formatGameScoreTitle(pick.game));
+		const past = views.recentFinals[slot - 1];
+		if (!past) {
+			await key.setTitle(`${abbrLine}\n—`);
+			return;
+		}
+		await key.setTitle(formatMlbCycleGameTitle(past, "recent"));
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		streamDeck.logger.error(`MlbGameScore: ${message}`);
@@ -178,6 +209,9 @@ export class MlbGameScore extends SingletonAction<MlbGameScoreSettings> {
 		});
 	}
 
+	/**
+	 * Cycles {@link MlbGameScoreSettings.scoreViewIndex}, merges settings (preserves `team`), refreshes title.
+	 */
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbGameScoreSettings>,
 	): Promise<void> {
@@ -186,8 +220,15 @@ export class MlbGameScore extends SingletonAction<MlbGameScoreSettings> {
 			await ev.action.setTitle("Set team");
 			return;
 		}
-		await syncMlbGameScoreKey(ev.action, ev.payload.settings, {
-			normalizePersistedTeam: false,
-		});
+		const settings = ev.payload.settings;
+		const nextIdx =
+			(resolveScoreViewIndex(settings) + 1) % SCORE_VIEW_SLOT_COUNT;
+		const merged: MlbGameScoreSettings = {
+			...settings,
+			scoreViewIndex: nextIdx,
+		};
+		await ev.action.setSettings(merged);
+		await applyScoreToKey(ev.action, merged);
+		scheduleRefresh(ev.action, ev.action.id);
 	}
 }

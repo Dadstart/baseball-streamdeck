@@ -5,11 +5,26 @@
 	<title>MLB Game Score</title>
 	<meta charset="utf-8" />
 	<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	<style>
+		/*
+		 * sdpi-select:focus uses an inset box-shadow colored with --font-color (see sdpi-components select.ts).
+		 * Aligning it with the input fill removes the visible focus border in the Stream Deck property inspector.
+		 */
+		sdpi-select {
+			--font-color: var(--input-bg-color);
+		}
+
+		html,
+		body {
+			background: transparent;
+		}
+	</style>
 </head>
 
 <body>
 	<!--
 		Settings key must match the plugin: `team` (Stats API id string).
+		Key press cycles: next upcoming game → prior game 1 → 2 → 3 (scores).
 	-->
 	<sdpi-item label="Team">
 		<sdpi-select setting="team" placeholder="Select a team…">
