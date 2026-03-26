@@ -4,7 +4,7 @@
  * Stream Deck **key action** that cycles through four views for the selected team (see
  * {@link ../services/mlb-schedule.ts} {@link fetchMlbGameScoreCycleViews}):
  *
- * 1. **Next upcoming** — earliest non-final game (date + live/final scores, or date + matchup when Preview).
+ * 1. **Next upcoming** — earliest non-final game (live/final scores with Eastern date, or local date/time + matchup when Preview).
  * 2–4. **Previous three games** — most recent finals, newest first (date + scores).
  *
  * **Settings:** `team` — Stats API team id (`string` or `number`). `scoreViewIndex` — `0…3` (persisted;

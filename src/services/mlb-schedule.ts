@@ -151,6 +151,25 @@ function formatGameDateHeader(game: MlbScheduleGame): string {
 }
 
 /**
+ * First line for a **scheduled** (Preview) upcoming game: local calendar date + start time in the runtime
+ * timezone, optional doubleheader suffix.
+ */
+function formatUpcomingPreviewHeader(game: MlbScheduleGame): string {
+	const ms = Date.parse(game.gameDate);
+	const g2 = game.gameNumber > 1 ? " · G2" : "";
+	if (!Number.isFinite(ms)) {
+		return `—${g2}`;
+	}
+	const when = new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(new Date(ms));
+	return `${when}${g2}`;
+}
+
+/**
  * Three-line title: game date, then away line and home line (`"Apr 3\\nAWY 3\\nHOM 5"`).
  */
 export function formatGameScoreTitle(game: MlbScheduleGame): string {
@@ -166,7 +185,7 @@ export function formatGameScoreTitle(game: MlbScheduleGame): string {
 
 /**
  * Title for one cycle slot: **recent** slots use scores (with date). **Upcoming** uses scores for Live/Final;
- * otherwise matchup + date — no fake `0–0` for Preview games.
+ * otherwise matchup + **local** date/time for Preview (no fake `0–0`).
  */
 export function formatMlbCycleGameTitle(
 	game: MlbScheduleGame,
@@ -180,7 +199,7 @@ export function formatMlbCycleGameTitle(
 	const h = game.teams.home;
 	const awayAbbr = abbrevForTeamId(a.team.id);
 	const homeAbbr = abbrevForTeamId(h.team.id);
-	const head = formatGameDateHeader(game);
+	const head = formatUpcomingPreviewHeader(game);
 	return `${head}\n${awayAbbr} @ ${homeAbbr}`;
 }
 
