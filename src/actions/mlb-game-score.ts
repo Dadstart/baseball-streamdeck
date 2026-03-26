@@ -2,9 +2,10 @@
  * @module actions/mlb-game-score
  *
  * Stream Deck **key action** that cycles through four views for the selected team (see
+ * {@link ../services/mlb-schedule.ts} {@link fetchCurrentOrNextMlbGame} and
  * {@link ../services/mlb-schedule.ts} {@link fetchMlbGameScoreCycleViews}):
  *
- * 1. **Next upcoming** — earliest non-final game (live/final scores with Eastern date, or Preview: opponent + local start time).
+ * 1. **Live or next upcoming** — current live game if any; otherwise earliest game not yet live/final.
  * 2–4. **Previous three games** — most recent finals, newest first (date + scores).
  *
  * **Settings:** `team` — Stats API team id (`string` or `number`). `scoreViewIndex` — `0…3` (persisted;
@@ -29,6 +30,7 @@ import streamDeck, {
 
 import { getMlbTeamById } from "../mlb/mlb-teams";
 import {
+	fetchCurrentOrNextMlbGame,
 	fetchMlbGameScoreCycleViews,
 	formatMlbCycleGameTitle,
 } from "../services/mlb-schedule";
@@ -99,7 +101,8 @@ function clearRefreshTimer(context: string): void {
 }
 
 /**
- * Fetches schedule views, formats the title for {@link resolveScoreViewIndex}; on failure logs and shows a short error title.
+ * Fetches the active slot’s data source, formats the title for {@link resolveScoreViewIndex}; on failure
+ * logs and shows a short error title.
  */
 async function applyScoreToKey(
 	key: KeyAction<MlbGameScoreSettings>,
@@ -114,17 +117,18 @@ async function applyScoreToKey(
 	const slot = resolveScoreViewIndex(settings);
 	const abbrLine = abbrevForNumericTeamId(idNum, teamId);
 	try {
-		const views = await fetchMlbGameScoreCycleViews(idNum);
 		if (slot === 0) {
-			if (!views.upcoming) {
+			const currentOrNext = await fetchCurrentOrNextMlbGame(idNum);
+			if (!currentOrNext) {
 				await key.setTitle(`${abbrLine}\n—`);
 				return;
 			}
 			await key.setTitle(
-				formatMlbCycleGameTitle(views.upcoming, "upcoming", idNum),
+				formatMlbCycleGameTitle(currentOrNext, "upcoming", idNum),
 			);
 			return;
 		}
+		const views = await fetchMlbGameScoreCycleViews(idNum);
 		const past = views.recentFinals[slot - 1];
 		if (!past) {
 			await key.setTitle(`${abbrLine}\n—`);
