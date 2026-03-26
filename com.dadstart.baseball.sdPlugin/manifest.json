@@ -18,6 +18,22 @@
 					"TitleAlignment": "middle"
 				}
 			]
+		},
+		{
+			"Name": "Game Score",
+			"UUID": "com.dadstart.baseball.gamescore",
+			"Icon": "imgs/actions/team-logo/icon",
+			"Tooltip": "Live MLB score for the selected team, or the last final score if no game is in progress.",
+			"PropertyInspectorPath": "ui/mlb-game-score.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/team-logo/key",
+					"TitleAlignment": "middle"
+				}
+			]
 		}
 	],
 	"Category": "baseball",
