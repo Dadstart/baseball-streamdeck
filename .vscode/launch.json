@@ -12,20 +12,6 @@
 	],
 	"configurations": [
 		{
-			"name": "Attach: Stream Deck plugin",
-			"type": "node",
-			"request": "attach",
-			"address": "127.0.0.1",
-			"port": 9229,
-			"outFiles": [
-				"${workspaceFolder}/com.dadstart.baseball.sdPlugin/bin/**/*.js"
-			],
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/**",
-				"!**/node_modules/**"
-			]
-		},
-		{
 			"name": "Attach: Node by PID (manual)",
 			"type": "node",
 			"request": "attach",
