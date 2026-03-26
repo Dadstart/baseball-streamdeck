@@ -190,6 +190,7 @@ export function formatGameScoreTitle(game: MlbScheduleGame): string {
 export function formatMlbCycleGameTitle(
 	game: MlbScheduleGame,
 	role: "upcoming" | "recent",
+	teamId?: number,
 ): string {
 	const state = game.status.abstractGameState;
 	if (role === "recent" || state === "Live" || state === "Final") {
@@ -200,6 +201,12 @@ export function formatMlbCycleGameTitle(
 	const awayAbbr = abbrevForTeamId(a.team.id);
 	const homeAbbr = abbrevForTeamId(h.team.id);
 	const head = formatUpcomingPreviewHeader(game);
+	if (teamId === a.team.id) {
+		return `${head}\nat ${homeAbbr}`;
+	}
+	if (teamId === h.team.id) {
+		return `${head}\nvs ${awayAbbr}`;
+	}
 	return `${head}\n${awayAbbr} @ ${homeAbbr}`;
 }
 

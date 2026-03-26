@@ -22,7 +22,7 @@
 		{
 			"Name": "Game Score",
 			"UUID": "com.dadstart.baseball.gamescore",
-			"Icon": "imgs/actions/team-logo/icon",
+			"Icon": "imgs/plugin/category-icon",
 			"Tooltip": "Live MLB score for the selected team, or the last final score if no game is in progress.",
 			"PropertyInspectorPath": "ui/mlb-game-score.html",
 			"Controllers": [
@@ -30,7 +30,7 @@
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/team-logo/key",
+					"Image": "imgs/actions/game-score/key",
 					"TitleAlignment": "middle"
 				}
 			]

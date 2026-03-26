@@ -121,7 +121,7 @@ async function applyScoreToKey(
 				return;
 			}
 			await key.setTitle(
-				formatMlbCycleGameTitle(views.upcoming, "upcoming"),
+				formatMlbCycleGameTitle(views.upcoming, "upcoming", idNum),
 			);
 			return;
 		}

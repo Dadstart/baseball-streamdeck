@@ -1,5 +1,7 @@
 {
     "scripts": {
+        "prebuild": "node scripts/write-game-score-key-pngs.mjs",
+        "prewatch": "node scripts/write-game-score-key-pngs.mjs",
         "build": "rollup -c",
         "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.dadstart.baseball\"",
         "validate": "streamdeck validate com.dadstart.baseball.sdPlugin",
