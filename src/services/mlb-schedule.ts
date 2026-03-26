@@ -5,7 +5,7 @@
  *
  * - **Single “headline” pick** — {@link pickRelevantScoreGame}: live game if any, else latest final.
  * - **Cycle views** — {@link buildMlbGameScoreCycleViews} / {@link fetchMlbGameScoreCycleViews}: next
- *   non-final game (upcoming or live) plus the three most recent final scores.
+ *   non-final game (upcoming or live; Preview shows opponent + system-local start time) plus three recent finals.
  */
 
 import { getMlbTeamById } from "../mlb/mlb-teams";
@@ -151,22 +151,44 @@ function formatGameDateHeader(game: MlbScheduleGame): string {
 }
 
 /**
- * First line for a **scheduled** (Preview) upcoming game: local calendar date + start time in the runtime
- * timezone, optional doubleheader suffix.
+ * Local calendar date + start time for a **scheduled** game (`Intl` default timezone = user’s system TZ).
  */
-function formatUpcomingPreviewHeader(game: MlbScheduleGame): string {
+function formatUpcomingPreviewLocalStart(game: MlbScheduleGame): string {
 	const ms = Date.parse(game.gameDate);
-	const g2 = game.gameNumber > 1 ? " · G2" : "";
 	if (!Number.isFinite(ms)) {
-		return `—${g2}`;
+		return "—";
 	}
-	const when = new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat(undefined, {
 		month: "short",
 		day: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
 	}).format(new Date(ms));
-	return `${when}${g2}`;
+}
+
+/**
+ * **Preview** upcoming key title: opponent from `teamId`’s perspective, then local start time. Doubleheader
+ * marker rides on the opponent line.
+ */
+function formatUpcomingPreviewTitleForTeam(
+	game: MlbScheduleGame,
+	teamId: number,
+): string {
+	const g2 = game.gameNumber > 1 ? " · G2" : "";
+	const a = game.teams.away;
+	const h = game.teams.home;
+	const awayAbbr = abbrevForTeamId(a.team.id);
+	const homeAbbr = abbrevForTeamId(h.team.id);
+	let oppLine: string;
+	if (teamId === a.team.id) {
+		oppLine = `@ ${homeAbbr}${g2}`;
+	} else if (teamId === h.team.id) {
+		oppLine = `vs ${awayAbbr}${g2}`;
+	} else {
+		oppLine = `${awayAbbr} @ ${homeAbbr}${g2}`;
+	}
+	const startLocal = formatUpcomingPreviewLocalStart(game);
+	return `${oppLine}\n${startLocal}`;
 }
 
 /**
@@ -185,7 +207,8 @@ export function formatGameScoreTitle(game: MlbScheduleGame): string {
 
 /**
  * Title for one cycle slot: **recent** slots use scores (with date). **Upcoming** uses scores for Live/Final;
- * otherwise matchup + **local** date/time for Preview (no fake `0–0`).
+ * otherwise for **Preview**, opponent + start time in the runtime’s local timezone (see
+ * {@link formatUpcomingPreviewTitleForTeam}).
  */
 export function formatMlbCycleGameTitle(
 	game: MlbScheduleGame,
@@ -196,18 +219,16 @@ export function formatMlbCycleGameTitle(
 	if (role === "recent" || state === "Live" || state === "Final") {
 		return formatGameScoreTitle(game);
 	}
+	if (teamId !== undefined && Number.isFinite(teamId)) {
+		return formatUpcomingPreviewTitleForTeam(game, teamId);
+	}
 	const a = game.teams.away;
 	const h = game.teams.home;
 	const awayAbbr = abbrevForTeamId(a.team.id);
 	const homeAbbr = abbrevForTeamId(h.team.id);
-	const head = formatUpcomingPreviewHeader(game);
-	if (teamId === a.team.id) {
-		return `${head}\nat ${homeAbbr}`;
-	}
-	if (teamId === h.team.id) {
-		return `${head}\nvs ${awayAbbr}`;
-	}
-	return `${head}\n${awayAbbr} @ ${homeAbbr}`;
+	const startLocal = formatUpcomingPreviewLocalStart(game);
+	const g2 = game.gameNumber > 1 ? " · G2" : "";
+	return `${startLocal}${g2}\n${awayAbbr} @ ${homeAbbr}`;
 }
 
 function scheduleUrl(teamId: number, startDate: string, endDate: string): string {
