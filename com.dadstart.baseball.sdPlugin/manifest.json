@@ -15,7 +15,8 @@
 			"States": [
 				{
 					"Image": "imgs/actions/team-logo/key",
-					"TitleAlignment": "middle"
+					"TitleAlignment": "middle",
+					"FontSize": 10
 				}
 			]
 		},
@@ -31,7 +32,8 @@
 			"States": [
 				{
 					"Image": "imgs/actions/game-score/key",
-					"TitleAlignment": "middle"
+					"TitleAlignment": "middle",
+					"FontSize": 10
 				}
 			]
 		},
@@ -47,7 +49,8 @@
 				{
 					"Image": "imgs/actions/division-standings/key",
 					"TitleAlignment": "middle",
-					"FontStyle": "Regular"
+					"FontStyle": "Regular",
+					"FontSize": 10
 				}
 			]
 		}
