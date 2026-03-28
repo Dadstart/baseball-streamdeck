@@ -143,21 +143,39 @@ export function divisionStandingsBlock(
 	};
 }
 
-/** Multi-line keypad title: division name, then one line per team (rank, abbr, W-L, optional GB). */
+/** Leader / tied-first `gamesBack` from the API — no numeric GB shown. */
+function gamesBackDisplay(gamesBack: string): string {
+	const t = gamesBack.trim();
+	if (t === "" || t === "-") {
+		return "";
+	}
+	return t;
+}
+
+/**
+ * Multi-line keypad title: division name, then one line per team (abbr + space-padded games back).
+ * GB is the only numeric column, right-aligned in a fixed-width column (monospace approximation).
+ */
 export function formatMlbDivisionStandingsTitle(
 	block: MlbDivisionStandingsBlock,
 ): string {
+	const maxAbbr = Math.max(
+		1,
+		...block.rows.map((r) => r.abbreviation.length),
+	);
+	const gbCells = block.rows.map((r) => gamesBackDisplay(r.gamesBack));
+	const maxGb = Math.max(0, ...gbCells.map((g) => g.length));
+
 	const lines: string[] = [block.title];
-	for (const r of block.rows) {
-		const wl =
-			r.ties > 0
-				? `${r.wins}-${r.losses}-${r.ties}`
-				: `${r.wins}-${r.losses}`;
-		let line = `${r.rank}.${r.abbreviation} ${wl}`;
-		if (r.gamesBack !== "-" && r.gamesBack.trim() !== "") {
-			line += ` ${r.gamesBack}`;
-		}
-		lines.push(line);
+	const gapBetween = 1;
+	for (let i = 0; i < block.rows.length; i++) {
+		const r = block.rows[i]!;
+		const gb = gbCells[i]!;
+		const left = r.abbreviation.padEnd(maxAbbr, " ");
+		const right = maxGb > 0 ? gb.padStart(maxGb, " ") : "";
+		const spacer =
+			maxGb > 0 ? " ".repeat(gapBetween) : "";
+		lines.push(`${left}${spacer}${right}`);
 	}
 	return lines.join("\n");
 }
