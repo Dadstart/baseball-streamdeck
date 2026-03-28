@@ -16,7 +16,8 @@
 				{
 					"Image": "imgs/actions/team-logo/key",
 					"TitleAlignment": "middle",
-					"FontSize": 10
+					"FontStyle": "Bold",
+					"FontSize": 11
 				}
 			]
 		},
@@ -33,7 +34,8 @@
 				{
 					"Image": "imgs/actions/game-score/key",
 					"TitleAlignment": "middle",
-					"FontSize": 10
+					"FontStyle": "Bold",
+					"FontSize": 11
 				}
 			]
 		},
@@ -50,7 +52,7 @@
 					"Image": "imgs/actions/division-standings/key",
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
-					"FontStyle": "Regular",
+					"FontStyle": "Bold",
 					"FontSize": 11
 				}
 			]
@@ -69,7 +71,7 @@
 					"Image": "imgs/actions/division-standings/key",
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
-					"FontStyle": "Regular",
+					"FontStyle": "Bold",
 					"FontSize": 11
 				}
 			]

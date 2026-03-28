@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+	<title>MLB Stat Leaders</title>
+	<meta charset="utf-8" />
+	<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	<style>
+		sdpi-select {
+			--font-color: var(--input-bg-color);
+		}
+
+		html,
+		body {
+			background: transparent;
+		}
+	</style>
+</head>
+
+<body>
+	<!--
+		Settings keys match the plugin action:
+		leaderStatKey — statGroup|leaderCategory for Stats API leaders.
+		leaderLeagueScope — mlb | al | nl (key press cycles MLB → AL → NL).
+		leaderRowCount — 3…7 leaders shown.
+		leaderSeason — optional four-digit year; empty = current season.
+		Refetch every 30 minutes (fixed in plugin).
+	-->
+	<sdpi-item label="Stat">
+		<sdpi-select setting="leaderStatKey" placeholder="Select stat…">
+			<optgroup label="Hitting">
+				<option value="hitting|homeRuns">Home runs</option>
+				<option value="hitting|runsBattedIn">RBI</option>
+				<option value="hitting|runs">Runs</option>
+				<option value="hitting|battingAverage">Batting average</option>
+				<option value="hitting|onBasePlusSlugging">OPS</option>
+				<option value="hitting|stolenBases">Stolen bases</option>
+				<option value="hitting|hits">Hits</option>
+				<option value="hitting|doubles">Doubles</option>
+				<option value="hitting|triples">Triples</option>
+			</optgroup>
+			<optgroup label="Pitching">
+				<option value="pitching|earnedRunAverage">ERA</option>
+				<option value="pitching|walksAndHitsPerInningPitched">WHIP</option>
+				<option value="pitching|strikeouts">Strikeouts</option>
+				<option value="pitching|saves">Saves</option>
+				<option value="pitching|wins">Wins</option>
+				<option value="pitching|inningsPitched">Innings pitched</option>
+			</optgroup>
+		</sdpi-select>
+	</sdpi-item>
+	<sdpi-item label="League">
+		<sdpi-select setting="leaderLeagueScope">
+			<option value="mlb">MLB (both leagues)</option>
+			<option value="al">American League</option>
+			<option value="nl">National League</option>
+		</sdpi-select>
+	</sdpi-item>
+	<sdpi-item label="Rows">
+		<sdpi-select setting="leaderRowCount">
+			<option value="3">3</option>
+			<option value="4" selected>4</option>
+			<option value="5">5</option>
+			<option value="6">6</option>
+			<option value="7">7</option>
+		</sdpi-select>
+	</sdpi-item>
+	<sdpi-item label="Season">
+		<sdpi-textfield setting="leaderSeason" placeholder="e.g. 2024 (optional)"></sdpi-textfield>
+	</sdpi-item>
+</body>
+
+</html>
