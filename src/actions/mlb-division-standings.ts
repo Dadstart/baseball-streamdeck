@@ -24,7 +24,7 @@ import {
 	divisionStandingsBlock,
 } from "../services/mlb-standings";
 
-const REFRESH_MS = 60_000;
+const REFRESH_MS = 30 * 60_000;
 
 type MlbDivisionStandingsSettings = {
 	divisionStandingsIndex?: number;
