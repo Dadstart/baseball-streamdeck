@@ -10,7 +10,7 @@
 <body>
 	<!--
 		https://sdpi-components.dev/docs/components
-		Settings keys must match the plugin: `team` (Stats API id string), `logoVariant`.
+		Settings keys: `team`, `logoVariant`, `randomLogoIntervalSec` (seconds; 0 = off; default 30).
 	-->
 	<sdpi-item label="Team">
 		<sdpi-select setting="team" placeholder="Select a team…">
@@ -66,6 +66,20 @@
 			<option value="team-primary-on-dark">Primary — on dark background</option>
 			<option value="team-primary-on-light">Primary — on light background</option>
 		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item
+		label="Randomize every (sec)"
+		info="0 = off (manual logo style and key cycles in order). Otherwise picks a random style on this interval and on key press."
+	>
+		<sdpi-textfield
+			setting="randomLogoIntervalSec"
+			type="number"
+			min="0"
+			max="86400"
+			placeholder="30"
+			default="30"
+		></sdpi-textfield>
 	</sdpi-item>
 </body>
 

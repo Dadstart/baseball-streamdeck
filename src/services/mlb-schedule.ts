@@ -300,7 +300,14 @@ function scheduleUrl(teamId: number, startDate: string, endDate: string): string
 	return `${MLB_STATS_SCHEDULE}?${q.toString()}`;
 }
 
-const CYCLE_PAST_DAYS = 730;
+/**
+ * Keep lookback short and recent.
+ *
+ * The MLB schedule endpoint can truncate very large windows in ways that skip
+ * current-season games for some teams. A 10-day lookback is enough for recent
+ * finals while reliably keeping current games in the payload.
+ */
+const CYCLE_PAST_DAYS = 10;
 /** Enough lookahead that “next upcoming” is usually in the payload without another request. */
 const CYCLE_FUTURE_DAYS = 60;
 /** Small lookback keeps delayed / pregame entries in range without scanning full history. */
@@ -376,7 +383,7 @@ export async function fetchCurrentOrNextMlbGame(
 }
 
 /**
- * Loads schedule for `teamId` from roughly the last 730 calendar days (Eastern) through tomorrow,
+ * Loads schedule for `teamId` from roughly the last 10 calendar days (Eastern) through tomorrow,
  * then {@link pickRelevantScoreGame}.
  */
 export async function fetchTeamScorePick(
@@ -387,7 +394,7 @@ export async function fetchTeamScorePick(
 		new Date(Date.now() + 24 * 60 * 60 * 1000),
 	);
 	const start = mlbDateStringEastern(
-		new Date(Date.now() - 730 * 24 * 60 * 60 * 1000),
+		new Date(Date.now() - CYCLE_PAST_DAYS * 24 * 60 * 60 * 1000),
 	);
 	const games = await fetchScheduleGamesForTeam(teamId, start, end, init);
 	return pickRelevantScoreGame(games, teamId);
