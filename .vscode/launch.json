@@ -1,0 +1,28 @@
+{
+	// Stream Deck: fixed inspector port (manifest Nodejs.Debug) + attach here.
+	// Cursor often does NOT resolve ${command:PickProcess}; use port attach or manual PID below.
+	"version": "0.2.0",
+	"inputs": [
+		{
+			"id": "nodePid",
+			"type": "promptString",
+			"description": "Node.js process ID (Windows: Task Manager Details tab, or: Get-Process node | Select-Object Id)",
+			"password": false
+		}
+	],
+	"configurations": [
+		{
+			"name": "Attach: Node by PID (manual)",
+			"type": "node",
+			"request": "attach",
+			"processId": "${input:nodePid}",
+			"outFiles": [
+				"${workspaceFolder}/com.dadstart.baseball.sdPlugin/bin/**/*.js"
+			],
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/**",
+				"!**/node_modules/**"
+			]
+		}
+	]
+}

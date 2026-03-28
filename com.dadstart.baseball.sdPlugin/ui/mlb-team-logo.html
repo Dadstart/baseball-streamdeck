@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+	<title>MLB Team Logo</title>
+	<meta charset="utf-8" />
+	<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+</head>
+
+<body>
+	<!--
+		https://sdpi-components.dev/docs/components
+		Settings keys: `team`, `logoVariant`, `randomLogoIntervalSec` (seconds; 0 = off; default 30).
+	-->
+	<sdpi-item label="Team">
+		<sdpi-select setting="team" placeholder="Select a team…">
+			<optgroup label="American League East">
+				<option value="110">BAL — Baltimore Orioles</option>
+				<option value="111">BOS — Boston Red Sox</option>
+				<option value="147">NYY — New York Yankees</option>
+				<option value="139">TB — Tampa Bay Rays</option>
+				<option value="141">TOR — Toronto Blue Jays</option>
+			</optgroup>
+			<optgroup label="American League Central">
+				<option value="145">CWS — Chicago White Sox</option>
+				<option value="114">CLE — Cleveland Guardians</option>
+				<option value="116">DET — Detroit Tigers</option>
+				<option value="118">KC — Kansas City Royals</option>
+				<option value="142">MIN — Minnesota Twins</option>
+			</optgroup>
+			<optgroup label="American League West">
+				<option value="133">ATH — Athletics</option>
+				<option value="117">HOU — Houston Astros</option>
+				<option value="108">LAA — Los Angeles Angels</option>
+				<option value="136">SEA — Seattle Mariners</option>
+				<option value="140">TEX — Texas Rangers</option>
+			</optgroup>
+			<optgroup label="National League East">
+				<option value="144">ATL — Atlanta Braves</option>
+				<option value="146">MIA — Miami Marlins</option>
+				<option value="121">NYM — New York Mets</option>
+				<option value="143">PHI — Philadelphia Phillies</option>
+				<option value="120">WSH — Washington Nationals</option>
+			</optgroup>
+			<optgroup label="National League Central">
+				<option value="112">CHC — Chicago Cubs</option>
+				<option value="113">CIN — Cincinnati Reds</option>
+				<option value="158">MIL — Milwaukee Brewers</option>
+				<option value="134">PIT — Pittsburgh Pirates</option>
+				<option value="138">STL — St. Louis Cardinals</option>
+			</optgroup>
+			<optgroup label="National League West">
+				<option value="109">AZ — Arizona Diamondbacks</option>
+				<option value="115">COL — Colorado Rockies</option>
+				<option value="119">LAD — Los Angeles Dodgers</option>
+				<option value="135">SD — San Diego Padres</option>
+				<option value="137">SF — San Francisco Giants</option>
+			</optgroup>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item label="Logo style">
+		<sdpi-select setting="logoVariant" default="team-cap-on-dark" placeholder="Logo variant…">
+			<option value="team-cap-on-dark">Cap — on dark background</option>
+			<option value="team-cap-on-light">Cap — on light background</option>
+			<option value="team-primary-on-dark">Primary — on dark background</option>
+			<option value="team-primary-on-light">Primary — on light background</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item
+		label="Randomize every (sec)"
+		info="0 = off (manual logo style and key cycles in order). Otherwise picks a random style on this interval and on key press."
+	>
+		<sdpi-textfield
+			setting="randomLogoIntervalSec"
+			type="number"
+			min="0"
+			max="86400"
+			placeholder="30"
+			default="30"
+		></sdpi-textfield>
+	</sdpi-item>
+</body>
+
+</html>

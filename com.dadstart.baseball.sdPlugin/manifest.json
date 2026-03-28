@@ -1,0 +1,63 @@
+{
+	"Name": "baseball",
+	"Version": "0.1.0.0",
+	"Author": "Dadstart",
+	"Actions": [
+		{
+			"Name": "Team Logo",
+			"UUID": "com.dadstart.baseball.teamlogo",
+			"Icon": "imgs/actions/team-logo/icon",
+			"Tooltip": "Show an MLB team logo from mlbstatic.com on press.",
+			"PropertyInspectorPath": "ui/mlb-team-logo.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/team-logo/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
+			"Name": "Game Score",
+			"UUID": "com.dadstart.baseball.gamescore",
+			"Icon": "imgs/plugin/category-icon",
+			"Tooltip": "Live MLB score for the selected team, or the last final score if no game is in progress.",
+			"PropertyInspectorPath": "ui/mlb-game-score.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/game-score/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		}
+	],
+	"Category": "baseball",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Baseball scores and stats",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "6.9"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "--inspect=127.0.0.1:9229"
+	},
+	"UUID": "com.dadstart.baseball"
+}
