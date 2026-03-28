@@ -54,6 +54,25 @@
 					"FontSize": 11
 				}
 			]
+		},
+		{
+			"Name": "Stat Leaders",
+			"UUID": "com.dadstart.baseball.statsleaders",
+			"Icon": "imgs/actions/division-standings/icon",
+			"Tooltip": "MLB regular-season stat leaders. Press to cycle MLB, AL, NL.",
+			"PropertyInspectorPath": "ui/mlb-stats-leaders.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/division-standings/key",
+					"TitleAlignment": "middle",
+					"FontFamily": "Courier New",
+					"FontStyle": "Regular",
+					"FontSize": 11
+				}
+			]
 		}
 	],
 	"Category": "baseball",
