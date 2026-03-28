@@ -34,6 +34,21 @@
 					"TitleAlignment": "middle"
 				}
 			]
+		},
+		{
+			"Name": "Division Standings",
+			"UUID": "com.dadstart.baseball.divisionstandings",
+			"Icon": "imgs/actions/division-standings/icon",
+			"Tooltip": "MLB division standings. Press to cycle AL East through NL West.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/division-standings/key",
+					"TitleAlignment": "middle"
+				}
+			]
 		}
 	],
 	"Category": "baseball",
