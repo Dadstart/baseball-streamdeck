@@ -15,7 +15,8 @@
 			"States": [
 				{
 					"Image": "imgs/actions/team-logo/key",
-					"TitleAlignment": "middle"
+					"TitleAlignment": "middle",
+					"FontSize": 10
 				}
 			]
 		},
@@ -31,7 +32,26 @@
 			"States": [
 				{
 					"Image": "imgs/actions/game-score/key",
-					"TitleAlignment": "middle"
+					"TitleAlignment": "middle",
+					"FontSize": 10
+				}
+			]
+		},
+		{
+			"Name": "Division Standings",
+			"UUID": "com.dadstart.baseball.divisionstandings",
+			"Icon": "imgs/actions/division-standings/icon",
+			"Tooltip": "MLB division standings. Press to cycle AL East through NL West.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/division-standings/key",
+					"TitleAlignment": "middle",
+					"FontFamily": "Courier New",
+					"FontStyle": "Regular",
+					"FontSize": 11
 				}
 			]
 		}

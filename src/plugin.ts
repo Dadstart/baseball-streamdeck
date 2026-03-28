@@ -1,5 +1,6 @@
 import streamDeck from "@elgato/streamdeck";
 
+import { MlbDivisionStandings } from "./actions/mlb-division-standings";
 import { MlbGameScore } from "./actions/mlb-game-score";
 import { MlbTeamLogo } from "./actions/mlb-team-logo";
 
@@ -8,6 +9,7 @@ streamDeck.logger.setLevel("trace");
 
 streamDeck.actions.registerAction(new MlbTeamLogo());
 streamDeck.actions.registerAction(new MlbGameScore());
+streamDeck.actions.registerAction(new MlbDivisionStandings());
 
 // Finally, connect to the Stream Deck.
 streamDeck.connect();
