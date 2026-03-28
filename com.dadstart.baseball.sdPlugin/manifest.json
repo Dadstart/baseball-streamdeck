@@ -49,8 +49,9 @@
 				{
 					"Image": "imgs/actions/division-standings/key",
 					"TitleAlignment": "middle",
+					"FontFamily": "Courier New",
 					"FontStyle": "Regular",
-					"FontSize": 10
+					"FontSize": 11
 				}
 			]
 		}
