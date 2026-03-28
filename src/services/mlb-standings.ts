@@ -143,11 +143,11 @@ export function divisionStandingsBlock(
 	};
 }
 
-/** Leader / tied-first `gamesBack` from the API — no numeric GB shown. */
+/** Leader / tied-first: API uses `"-"`; show `0` games back. */
 function gamesBackDisplay(gamesBack: string): string {
 	const t = gamesBack.trim();
 	if (t === "" || t === "-") {
-		return "";
+		return "0";
 	}
 	return t;
 }

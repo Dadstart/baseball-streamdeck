@@ -46,7 +46,8 @@
 			"States": [
 				{
 					"Image": "imgs/actions/division-standings/key",
-					"TitleAlignment": "middle"
+					"TitleAlignment": "middle",
+					"FontStyle": "Regular"
 				}
 			]
 		}
