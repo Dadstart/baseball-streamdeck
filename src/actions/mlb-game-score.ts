@@ -1,9 +1,9 @@
 /**
  * @module actions/mlb-game-score
  *
- * Stream Deck **key action** that cycles through four views for the selected team (see
- * {@link ../services/mlb-schedule.ts} {@link fetchCurrentOrNextMlbGame} and
- * {@link ../services/mlb-schedule.ts} {@link fetchMlbGameScoreCycleViews}):
+ * Stream Deck **key action** that cycles through four views for the selected team. Data is loaded with
+ * `fetchCurrentOrNextMlbGame` (slot 0) and `fetchMlbGameScoreCycleViews` (recent finals) from
+ * {@link ../services/mlb-schedule}.
  *
  * 1. **Live or next upcoming** — current live game if any; otherwise earliest game not yet live/final.
  * 2–4. **Previous three games** — most recent finals, newest first (date + scores).
@@ -67,6 +67,7 @@ function titleForMlbGameScoreSettings(settings: MlbGameScoreSettings): string {
 	return abbrevForNumericTeamId(Number(id), id);
 }
 
+/** Wraps `scoreViewIndex` to `0…{@link SCORE_VIEW_SLOT_COUNT} - 1` (invalid / missing → `0`). */
 function resolveScoreViewIndex(settings: MlbGameScoreSettings): number {
 	const raw = settings.scoreViewIndex ?? 0;
 	const n = Math.floor(Number(raw));
@@ -76,6 +77,7 @@ function resolveScoreViewIndex(settings: MlbGameScoreSettings): number {
 	return ((n % SCORE_VIEW_SLOT_COUNT) + SCORE_VIEW_SLOT_COUNT) % SCORE_VIEW_SLOT_COUNT;
 }
 
+/** One interval per Stream Deck key `context` id. */
 const refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 function clearRefreshTimer(context: string): void {
@@ -128,6 +130,7 @@ async function applyScoreToKey(
 	}
 }
 
+/** Re-fetches using latest saved settings every {@link REFRESH_MS} (live scores / schedule). */
 function scheduleRefresh(
 	key: KeyAction<MlbGameScoreSettings>,
 	context: string,
@@ -183,6 +186,7 @@ export class MlbGameScore extends SingletonAction<MlbGameScoreSettings> {
 		});
 	}
 
+	/** Stop polling when the key leaves the canvas. */
 	override onWillDisappear(ev: WillDisappearEvent<MlbGameScoreSettings>): void {
 		clearRefreshTimer(ev.action.id);
 	}

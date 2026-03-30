@@ -1,10 +1,12 @@
 /**
  * @module actions/mlb-division-standings
  *
- * Stream Deck key that shows **MLB division standings** (Stats API). **Key press**
+ * Stream Deck key that shows **MLB division standings** from {@link fetchMlbDivisionStandingsMap}. **Key press**
  * advances to the next division (AL East → … → NL West → wrap).
  *
- * **Settings:** `divisionStandingsIndex` — `0…5` (persisted).
+ * **Settings:** `divisionStandingsIndex` — `0…5` (persisted). There is no Property Inspector; cycling is the only control.
+ *
+ * **Refresh:** Standings are re-fetched on a fixed interval ({@link REFRESH_MS}) while the key is visible.
  */
 
 import streamDeck, {
@@ -24,12 +26,14 @@ import {
 	divisionStandingsBlock,
 } from "../services/mlb-standings";
 
+/** Poll interval while the key is shown (ms); matches stat leaders cadence. */
 const REFRESH_MS = 30 * 60_000;
 
 type MlbDivisionStandingsSettings = {
 	divisionStandingsIndex?: number;
 };
 
+/** Normalizes index into `0…{@link MLB_DIVISION_STANDINGS_COUNT} - 1`. */
 function resolveDivisionStandingsIndex(
 	settings: MlbDivisionStandingsSettings,
 ): number {
@@ -46,6 +50,7 @@ function resolveDivisionStandingsIndex(
 
 const refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
+/** Clears the standings refresh timer for a key context. */
 function clearRefreshTimer(context: string): void {
 	const t = refreshTimers.get(context);
 	if (t !== undefined) {
@@ -54,6 +59,7 @@ function clearRefreshTimer(context: string): void {
 	}
 }
 
+/** Fetches the map, picks the division for {@link resolveDivisionStandingsIndex}, sets title or error. */
 async function applyStandingsToKey(
 	key: KeyAction<MlbDivisionStandingsSettings>,
 	settings: MlbDivisionStandingsSettings,
@@ -74,6 +80,7 @@ async function applyStandingsToKey(
 	}
 }
 
+/** Re-fetches on {@link REFRESH_MS} using latest saved settings. */
 function scheduleRefresh(
 	key: KeyAction<MlbDivisionStandingsSettings>,
 	context: string,
@@ -87,6 +94,7 @@ function scheduleRefresh(
 	);
 }
 
+/** Loads title and (re)starts refresh timer. */
 async function syncDivisionStandingsKey(
 	key: KeyAction<MlbDivisionStandingsSettings>,
 	settings: MlbDivisionStandingsSettings,
@@ -95,6 +103,7 @@ async function syncDivisionStandingsKey(
 	scheduleRefresh(key, key.id);
 }
 
+/** Key UUID `com.dadstart.baseball.divisionstandings` (see manifest). */
 @action({ UUID: "com.dadstart.baseball.divisionstandings" })
 export class MlbDivisionStandings extends SingletonAction<MlbDivisionStandingsSettings> {
 	override async onWillAppear(
@@ -106,12 +115,14 @@ export class MlbDivisionStandings extends SingletonAction<MlbDivisionStandingsSe
 		await syncDivisionStandingsKey(ev.action, ev.payload.settings);
 	}
 
+	/** Stop polling when the key leaves the canvas. */
 	override onWillDisappear(
 		ev: WillDisappearEvent<MlbDivisionStandingsSettings>,
 	): void {
 		clearRefreshTimer(ev.action.id);
 	}
 
+	/** Rare: if settings are ever merged from outside (e.g. future PI). */
 	override async onDidReceiveSettings(
 		ev: DidReceiveSettingsEvent<MlbDivisionStandingsSettings>,
 	): Promise<void> {

@@ -1,7 +1,11 @@
 /**
  * @module services/mlb-leaders
  *
- * Fetches **stat leaders** from the MLB Stats API (`/api/v1/stats/leaders`) for keypad titles.
+ * Fetches **stat leaders** from the MLB Stats API (`/api/v1/stats/leaders`) and formats compact titles:
+ * header line (stat + league, optional season), then fixed-width name/value rows
+ * (see {@link formatStatLeaderRowLine}).
+ *
+ * Settings use `statGroup|leaderCategory` keys aligned with {@link MLB_LEADER_STAT_LABEL}.
  */
 
 const MLB_STATS_LEADERS = "https://statsapi.mlb.com/api/v1/stats/leaders";
@@ -105,10 +109,14 @@ export const MLB_LEADER_STAT_KEYS_DEFAULT_ORDER = [
 	"pitching|inningsPitched",
 ] as const;
 
+/** Short label for the key header, or the raw key if unmapped. */
 export function leaderStatLabel(statKey: string): string {
 	return MLB_LEADER_STAT_LABEL[statKey] ?? statKey;
 }
 
+/**
+ * Parses `leaderStatKey` from settings (`hitting|homeRuns`). Invalid or empty input defaults to home runs.
+ */
 export function parseLeaderStatKey(raw: string | undefined): {
 	statGroup: string;
 	leaderCategory: string;
@@ -198,6 +206,7 @@ function leagueTagForScope(scope: MlbStatLeadersLeagueScope): string {
 	return "MLB";
 }
 
+/** JSON value or missing → display string (em dash for absent). */
 function valueToString(v: string | number | undefined): string {
 	if (v === undefined || v === null) {
 		return "—";
@@ -206,7 +215,8 @@ function valueToString(v: string | number | undefined): string {
 }
 
 /**
- * Fetches leaders and returns the first split (single category request). Truncates to `rowCount` rows.
+ * Fetches leaders and returns the first API split (one category). Stops after `rowCount` display rows;
+ * `limit` on the request is oversized so ties still fill the key.
  */
 export async function fetchMlbStatLeaders(
 	params: MlbStatLeadersFetchParams,

@@ -62,6 +62,7 @@ type StandingsResponse = {
 	readonly records?: ReadonlyArray<StandingsRecord>;
 };
 
+/** Prefer {@link getMlbTeamById}; else first three letters of API name. */
 function abbrevForTeam(teamId: number, fallbackName: string): string {
 	return (
 		getMlbTeamById(teamId)?.abbreviation ??
@@ -69,6 +70,7 @@ function abbrevForTeam(teamId: number, fallbackName: string): string {
 	);
 }
 
+/** Builds division id → sorted rows from `/api/v1/standings` JSON. */
 function parseStandingsBody(body: StandingsResponse): Map<
 	number,
 	MlbDivisionStandingRow[]

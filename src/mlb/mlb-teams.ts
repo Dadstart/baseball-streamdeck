@@ -106,7 +106,11 @@ export function getMlbTeamById(id: number): MlbTeam | undefined {
 	return MLB_TEAM_BY_ID[id];
 }
 
-/** Trims string form of a settings `team` field; empty if missing. */
+/**
+ * Trims a Property Inspector `team` value (sdpi may store ids as string or number).
+ *
+ * @param team - Raw `settings.team`; `undefined` / `null` yields `""`.
+ */
 export function teamIdString(team: string | number | undefined | null): string {
 	if (team === undefined || team === null) {
 		return "";
@@ -114,7 +118,10 @@ export function teamIdString(team: string | number | undefined | null): string {
 	return String(team).trim();
 }
 
-/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
+/**
+ * @param id - After {@link teamIdString}; empty string is not numeric.
+ * @returns Whether `id` is suitable as a Stats API team id (`/^\d+$/`).
+ */
 export function isNumericTeamId(id: string): boolean {
 	return /^\d+$/.test(id);
 }
