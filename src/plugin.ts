@@ -5,8 +5,7 @@ import { MlbGameScore } from "./actions/mlb-game-score";
 import { MlbStatsLeaders } from "./actions/mlb-stats-leaders";
 import { MlbTeamLogo } from "./actions/mlb-team-logo";
 
-// We can enable "trace" logging so that all messages between the Stream Deck, and the plugin are recorded. When storing sensitive information
-streamDeck.logger.setLevel("trace");
+streamDeck.logger.setLevel("info");
 
 streamDeck.actions.registerAction(new MlbTeamLogo());
 streamDeck.actions.registerAction(new MlbGameScore());
