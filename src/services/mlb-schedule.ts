@@ -3,11 +3,8 @@
  *
  * Fetches team schedules from the **MLB Stats API** for score display:
  *
- * - **Single “headline” pick** — {@link pickRelevantScoreGame}: live game if any, else latest final.
  * - **Slot 0 pick** — {@link pickCurrentOrNextGame} / {@link fetchCurrentOrNextMlbGame}: live game if any,
  *   else earliest game that is not yet live or final.
- * - **Strict upcoming pick** — {@link pickNextUpcomingGame} / {@link fetchNextUpcomingMlbGame}: earliest
- *   game that is not yet live or final.
  * - **Cycle views** — {@link buildMlbGameScoreCycleViews} / {@link fetchMlbGameScoreCycleViews}: next
  *   non-final game (upcoming or live; Preview shows opponent + system-local date/time) plus three recent finals.
  */
@@ -44,11 +41,6 @@ export type MlbScheduleGame = {
 		readonly home: MlbScheduleGameTeamSide;
 	};
 };
-
-export type MlbScorePick =
-	| { readonly kind: "live"; readonly game: MlbScheduleGame }
-	| { readonly kind: "final"; readonly game: MlbScheduleGame }
-	| { readonly kind: "none" };
 
 /** Data for the game-score key’s four-way cycle: upcoming, then three previous finals (newest first). */
 export type MlbGameScoreCycleViews = {
@@ -97,30 +89,6 @@ function isFinalGame(game: MlbScheduleGame): boolean {
 
 function isUpcomingGame(game: MlbScheduleGame): boolean {
 	return !isLiveGame(game) && !isFinalGame(game);
-}
-
-/**
- * Picks the latest **Live** game, or if none, the latest **Final** game involving `teamId`.
- * Games are ordered by {@link MlbScheduleGame.gameDate} then {@link MlbScheduleGame.gameNumber}.
- */
-export function pickRelevantScoreGame(
-	games: readonly MlbScheduleGame[],
-	teamId: number,
-): MlbScorePick {
-	const mine = games.filter((g) => teamParticipates(g, teamId));
-	if (mine.length === 0) {
-		return { kind: "none" };
-	}
-	mine.sort((a, b) => gameSortKey(a) - gameSortKey(b));
-	const live = mine.filter((g) => isLiveGame(g));
-	if (live.length > 0) {
-		return { kind: "live", game: live[live.length - 1]! };
-	}
-	const finals = mine.filter((g) => isFinalGame(g));
-	if (finals.length > 0) {
-		return { kind: "final", game: finals[finals.length - 1]! };
-	}
-	return { kind: "none" };
 }
 
 /**
@@ -353,74 +321,3 @@ async function fetchScheduleGamesForTeam(
 	return flattenGames(body);
 }
 
-/**
- * Loads schedule for `teamId` from roughly the last {@link CYCLE_PAST_DAYS} Eastern calendar days through
- * {@link CYCLE_FUTURE_DAYS} days ahead, then {@link buildMlbGameScoreCycleViews}.
- */
-export async function fetchMlbGameScoreCycleViews(
-	teamId: number,
-	init?: RequestInit & { signal?: AbortSignal },
-): Promise<MlbGameScoreCycleViews> {
-	const end = mlbDateStringEastern(
-		new Date(Date.now() + CYCLE_FUTURE_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const start = mlbDateStringEastern(
-		new Date(Date.now() - CYCLE_PAST_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const games = await fetchScheduleGamesForTeam(teamId, start, end, init);
-	return buildMlbGameScoreCycleViews(games, teamId);
-}
-
-/**
- * Loads schedule for `teamId` from a small recent lookback window through {@link CYCLE_FUTURE_DAYS} days
- * ahead, then {@link pickNextUpcomingGame}.
- */
-export async function fetchNextUpcomingMlbGame(
-	teamId: number,
-	init?: RequestInit & { signal?: AbortSignal },
-): Promise<MlbScheduleGame | null> {
-	const end = mlbDateStringEastern(
-		new Date(Date.now() + CYCLE_FUTURE_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const start = mlbDateStringEastern(
-		new Date(Date.now() - UPCOMING_PAST_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const games = await fetchScheduleGamesForTeam(teamId, start, end, init);
-	return pickNextUpcomingGame(games, teamId);
-}
-
-/**
- * Loads schedule for `teamId` from a small recent lookback window through {@link CYCLE_FUTURE_DAYS} days
- * ahead, then {@link pickCurrentOrNextGame}.
- */
-export async function fetchCurrentOrNextMlbGame(
-	teamId: number,
-	init?: RequestInit & { signal?: AbortSignal },
-): Promise<MlbScheduleGame | null> {
-	const end = mlbDateStringEastern(
-		new Date(Date.now() + CYCLE_FUTURE_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const start = mlbDateStringEastern(
-		new Date(Date.now() - UPCOMING_PAST_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const games = await fetchScheduleGamesForTeam(teamId, start, end, init);
-	return pickCurrentOrNextGame(games, teamId);
-}
-
-/**
- * Loads schedule for `teamId` from roughly the last 10 calendar days (Eastern) through tomorrow,
- * then {@link pickRelevantScoreGame}.
- */
-export async function fetchTeamScorePick(
-	teamId: number,
-	init?: RequestInit & { signal?: AbortSignal },
-): Promise<MlbScorePick> {
-	const end = mlbDateStringEastern(
-		new Date(Date.now() + 24 * 60 * 60 * 1000),
-	);
-	const start = mlbDateStringEastern(
-		new Date(Date.now() - CYCLE_PAST_DAYS * 24 * 60 * 60 * 1000),
-	);
-	const games = await fetchScheduleGamesForTeam(teamId, start, end, init);
-	return pickRelevantScoreGame(games, teamId);
-}
