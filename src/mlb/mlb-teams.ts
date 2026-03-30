@@ -105,3 +105,16 @@ export function getMlbTeamIdByName(name: string): number | undefined {
 export function getMlbTeamById(id: number): MlbTeam | undefined {
 	return MLB_TEAM_BY_ID[id];
 }
+
+/** Trims string form of a settings `team` field; empty if missing. */
+export function teamIdString(team: string | number | undefined | null): string {
+	if (team === undefined || team === null) {
+		return "";
+	}
+	return String(team).trim();
+}
+
+/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
+export function isNumericTeamId(id: string): boolean {
+	return /^\d+$/.test(id);
+}

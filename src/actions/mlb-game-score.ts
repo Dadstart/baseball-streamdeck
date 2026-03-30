@@ -28,7 +28,7 @@ import streamDeck, {
 	type KeyAction,
 } from "@elgato/streamdeck";
 
-import { getMlbTeamById } from "../mlb/mlb-teams";
+import { getMlbTeamById, isNumericTeamId, teamIdString } from "../mlb/mlb-teams";
 import {
 	fetchCurrentOrNextMlbGame,
 	fetchMlbGameScoreCycleViews,
@@ -51,20 +51,6 @@ type MlbGameScoreSettings = {
 	scoreViewIndex?: number;
 };
 
-/** Trims string form of `settings.team`; empty if missing. */
-function teamIdString(settings: MlbGameScoreSettings): string {
-	const raw = settings.team;
-	if (raw === undefined || raw === null) {
-		return "";
-	}
-	return String(raw).trim();
-}
-
-/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
-function isNumericTeamId(id: string): boolean {
-	return /^\d+$/.test(id);
-}
-
 /** Abbreviation for title lines when we only have a numeric id. */
 function abbrevForNumericTeamId(idNum: number, fallbackId: string): string {
 	return getMlbTeamById(idNum)?.abbreviation ?? fallbackId;
@@ -74,7 +60,7 @@ function abbrevForNumericTeamId(idNum: number, fallbackId: string): string {
  * Key title when not showing a loaded score: `Team?` if missing/invalid id, else known abbreviation or id.
  */
 function titleForMlbGameScoreSettings(settings: MlbGameScoreSettings): string {
-	const id = teamIdString(settings);
+	const id = teamIdString(settings.team);
 	if (!id || !isNumericTeamId(id)) {
 		return "Team?";
 	}
@@ -108,7 +94,7 @@ async function applyScoreToKey(
 	key: KeyAction<MlbGameScoreSettings>,
 	settings: MlbGameScoreSettings,
 ): Promise<void> {
-	const teamId = teamIdString(settings);
+	const teamId = teamIdString(settings.team);
 	if (!teamId || !isNumericTeamId(teamId)) {
 		await key.setTitle(titleForMlbGameScoreSettings(settings));
 		return;
@@ -166,7 +152,7 @@ async function syncMlbGameScoreKey(
 ): Promise<void> {
 	let effective = settings;
 	if (normalizePersistedTeam) {
-		const teamId = teamIdString(settings);
+		const teamId = teamIdString(settings.team);
 		if (
 			teamId &&
 			isNumericTeamId(teamId) &&
@@ -219,7 +205,7 @@ export class MlbGameScore extends SingletonAction<MlbGameScoreSettings> {
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbGameScoreSettings>,
 	): Promise<void> {
-		const teamId = teamIdString(ev.payload.settings);
+		const teamId = teamIdString(ev.payload.settings.team);
 		if (!teamId || !isNumericTeamId(teamId)) {
 			await ev.action.setTitle("Set team");
 			return;

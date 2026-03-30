@@ -25,7 +25,7 @@ import streamDeck, {
 	type KeyAction,
 } from "@elgato/streamdeck";
 
-import { getMlbTeamById } from "../mlb/mlb-teams";
+import { getMlbTeamById, isNumericTeamId, teamIdString } from "../mlb/mlb-teams";
 import {
 	DEFAULT_MLB_LOGO_VARIANT,
 	fetchMlbTeamLogoSvg,
@@ -102,25 +102,11 @@ function resolveRandomLogoIntervalSec(settings: MlbLogoSettings): number {
 	return DEFAULT_RANDOM_LOGO_INTERVAL_SEC;
 }
 
-/** Trims string form of `settings.team`; empty if missing. */
-function teamIdString(settings: MlbLogoSettings): string {
-	const raw = settings.team;
-	if (raw === undefined || raw === null) {
-		return "";
-	}
-	return String(raw).trim();
-}
-
-/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
-function isNumericTeamId(id: string): boolean {
-	return /^\d+$/.test(id);
-}
-
 /**
  * Key title when not showing a loaded logo: abbreviation from {@link getMlbTeamById}, or fallbacks.
  */
 function titleForMlbLogoSettings(settings: MlbLogoSettings): string {
-	const id = teamIdString(settings);
+	const id = teamIdString(settings.team);
 	if (!id || !isNumericTeamId(id)) {
 		return "Team?";
 	}
@@ -187,7 +173,7 @@ async function randomizeLogoTick(
 		clearRandomizeTimer(key.id);
 		return;
 	}
-	const teamId = teamIdString(settings);
+	const teamId = teamIdString(settings.team);
 	if (!teamId || !isNumericTeamId(teamId)) {
 		clearRandomizeTimer(key.id);
 		return;
@@ -206,7 +192,7 @@ async function updateKeyForSettings(
 	settings: MlbLogoSettings,
 	{ normalizePersistedTeam }: { normalizePersistedTeam: boolean },
 ): Promise<void> {
-	const teamId = teamIdString(settings);
+	const teamId = teamIdString(settings.team);
 	if (!teamId || !isNumericTeamId(teamId)) {
 		clearRandomizeTimer(key.id);
 		await key.setTitle(titleForMlbLogoSettings(settings));
@@ -272,7 +258,7 @@ export class MlbTeamLogo extends SingletonAction<MlbLogoSettings> {
 		ev: KeyDownEvent<MlbLogoSettings>,
 	): Promise<void> {
 		const settings = ev.payload.settings;
-		const teamId = teamIdString(settings);
+		const teamId = teamIdString(settings.team);
 		if (!teamId || !isNumericTeamId(teamId)) {
 			await ev.action.setTitle("Set team id");
 			streamDeck.logger.warn(
