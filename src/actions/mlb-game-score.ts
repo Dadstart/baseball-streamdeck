@@ -134,7 +134,7 @@ async function applyScoreToKey(
 			await key.setTitle(`${abbrLine}\n—`);
 			return;
 		}
-		await key.setTitle(formatMlbCycleGameTitle(past, "recent"));
+		await key.setTitle(formatMlbCycleGameTitle(past, "recent", idNum));
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		streamDeck.logger.error(`MlbGameScore: ${message}`);

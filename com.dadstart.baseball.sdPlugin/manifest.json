@@ -36,7 +36,7 @@
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
 					"FontStyle": "Regular",
-					"FontSize": 12
+					"FontSize": 14
 				}
 			]
 		},
@@ -73,7 +73,7 @@
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
 					"FontStyle": "Regular",
-					"FontSize": 10
+					"FontSize": 11
 				}
 			]
 		}

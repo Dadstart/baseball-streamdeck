@@ -276,6 +276,31 @@ export function formatMlbCycleGameTitle(
 ): string {
 	const state = game.status.abstractGameState;
 	if (role === "recent" || state === "Live" || state === "Final") {
+		const isFinal = state === "Final";
+		if (!isFinal || teamId === undefined || !Number.isFinite(teamId)) {
+			return formatGameScoreTitle(game);
+		}
+		const a = game.teams.away;
+		const h = game.teams.home;
+		const awayAbbr = abbrevForTeamId(a.team.id);
+		const homeAbbr = abbrevForTeamId(h.team.id);
+		const awayScore = a.score ?? 0;
+		const homeScore = h.score ?? 0;
+		const head = formatGameDateHeader(game);
+		if (teamId === a.team.id) {
+			const marker = awayScore > homeScore ? "✅" : awayScore < homeScore ? "❌" : "";
+			if (!marker) {
+				return `${head}\n${awayAbbr} ${awayScore}\n${homeAbbr} ${homeScore}`;
+			}
+			return `${head}\n${awayAbbr} ${awayScore}\n${marker}`;
+		}
+		if (teamId === h.team.id) {
+			const marker = homeScore > awayScore ? "✅" : homeScore < awayScore ? "❌" : "";
+			if (!marker) {
+				return `${head}\n${awayAbbr} ${awayScore}\n${homeAbbr} ${homeScore}`;
+			}
+			return `${head}\n${homeAbbr} ${homeScore}\n${marker}`;
+		}
 		return formatGameScoreTitle(game);
 	}
 	if (teamId !== undefined && Number.isFinite(teamId)) {

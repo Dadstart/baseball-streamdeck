@@ -19,7 +19,7 @@ export type MlbStatLeaderRow = {
 };
 
 /** Monospace columns Stream Deck keys typically fit per line (Courier). */
-export const MLB_STAT_LEADER_LINE_MAX_CHARS = 10;
+export const MLB_STAT_LEADER_LINE_MAX_CHARS = 9;
 
 const NAME_VALUE_SEPARATOR = " ";
 const ELLIPSIS = "…";
