@@ -61,7 +61,7 @@
 		{
 			"Name": "Stat Leaders",
 			"UUID": "com.dadstart.baseball.statsleaders",
-			"Icon": "imgs/actions/division-standings/icon",
+			"Icon": "imgs/actions/stats-leaders/icon",
 			"Tooltip": "MLB regular-season stat leaders. Press to cycle MLB, AL, NL.",
 			"PropertyInspectorPath": "ui/mlb-stats-leaders.html",
 			"Controllers": [
@@ -69,7 +69,7 @@
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/division-standings/key",
+					"Image": "imgs/actions/stats-leaders/key",
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
 					"FontStyle": "Regular",
