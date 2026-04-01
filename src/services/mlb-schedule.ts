@@ -267,17 +267,17 @@ export function formatMlbCycleGameTitle(
 		const head = formatGameDateHeader(game);
 		if (teamId === a.team.id) {
 			const marker = awayScore > homeScore ? "✅" : awayScore < homeScore ? "❌" : "";
-			if (!marker) {
-				return `${head}\n${awayAbbr} ${awayScore}\n${homeAbbr} ${homeScore}`;
-			}
-			return `${head}\n${awayAbbr} ${awayScore}\n${marker}`;
+			const teamLine = marker
+				? `${awayAbbr} ${awayScore} ${marker}`
+				: `${awayAbbr} ${awayScore}`;
+			return `${head}\n${teamLine}\n${homeAbbr} ${homeScore}`;
 		}
 		if (teamId === h.team.id) {
 			const marker = homeScore > awayScore ? "✅" : homeScore < awayScore ? "❌" : "";
-			if (!marker) {
-				return `${head}\n${awayAbbr} ${awayScore}\n${homeAbbr} ${homeScore}`;
-			}
-			return `${head}\n${homeAbbr} ${homeScore}\n${marker}`;
+			const teamLine = marker
+				? `${homeAbbr} ${homeScore} ${marker}`
+				: `${homeAbbr} ${homeScore}`;
+			return `${head}\n${teamLine}\n${awayAbbr} ${awayScore}`;
 		}
 		return formatGameScoreTitle(game);
 	}
