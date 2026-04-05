@@ -74,11 +74,27 @@
 		></sdpi-select>
 	</sdpi-item>
 
+	<sdpi-item label="Cache">
+		<div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+			<button id="clearCacheButton" type="button">Clear cache</button>
+			<small id="cacheStatusText" style="opacity: 0.8;"></small>
+		</div>
+	</sdpi-item>
+
+	<sdpi-item style="display: none;">
+		<sdpi-textfield id="cacheClearTokenBridge" setting="cacheClearToken"></sdpi-textfield>
+	</sdpi-item>
+
 	<script>
 		const MLB_TEAM_ROSTER_API_BASE = "https://statsapi.mlb.com/api/v1/teams";
 		const NUMERIC_ID_RE = /^\d+$/;
+		const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+		const ROSTER_CACHE_KEY_PREFIX = "mlbPlayerHeadshotRoster:";
 		const teamSelect = document.getElementById("teamSelect");
 		const playerSelect = document.getElementById("playerSelect");
+		const clearCacheButton = document.getElementById("clearCacheButton");
+		const cacheStatusText = document.getElementById("cacheStatusText");
+		const cacheClearTokenBridge = document.getElementById("cacheClearTokenBridge");
 		let rosterAbortController = null;
 
 		function selectValue(el) {
@@ -91,6 +107,18 @@
 
 		function dispatchSelectChange(el) {
 			el.dispatchEvent(new Event("change", { bubbles: true }));
+		}
+
+		function statusMessage(text) {
+			cacheStatusText.textContent = text;
+			if (text === "") {
+				return;
+			}
+			setTimeout(() => {
+				if (cacheStatusText.textContent === text) {
+					cacheStatusText.textContent = "";
+				}
+			}, 2500);
 		}
 
 		function makeOption(value, label) {
@@ -127,6 +155,100 @@
 			return `${jersey}${row.person.fullName}${position}`;
 		}
 
+		function rosterStorageKey(teamId) {
+			return `${ROSTER_CACHE_KEY_PREFIX}${teamId}`;
+		}
+
+		function readRosterCache(teamId) {
+			try {
+				const raw = localStorage.getItem(rosterStorageKey(teamId));
+				if (raw === null || raw === "") {
+					return null;
+				}
+				const parsed = JSON.parse(raw);
+				const cachedAtMs = Number(parsed?.cachedAtMs);
+				const playersRaw = Array.isArray(parsed?.players) ? parsed.players : null;
+				if (!Number.isFinite(cachedAtMs) || playersRaw === null) {
+					localStorage.removeItem(rosterStorageKey(teamId));
+					return null;
+				}
+				if (Date.now() - cachedAtMs > ONE_WEEK_MS) {
+					localStorage.removeItem(rosterStorageKey(teamId));
+					return null;
+				}
+				const players = playersRaw
+					.map((p) => ({
+						id: String(p?.id ?? "").trim(),
+						label: String(p?.label ?? "").trim(),
+					}))
+					.filter((p) => p.id !== "" && p.label !== "");
+				if (players.length === 0 && playersRaw.length > 0) {
+					localStorage.removeItem(rosterStorageKey(teamId));
+					return null;
+				}
+				return players;
+			} catch {
+				localStorage.removeItem(rosterStorageKey(teamId));
+				return null;
+			}
+		}
+
+		function writeRosterCache(teamId, players) {
+			try {
+				localStorage.setItem(
+					rosterStorageKey(teamId),
+					JSON.stringify({
+						cachedAtMs: Date.now(),
+						players,
+					}),
+				);
+			} catch {
+				// Ignore quota errors; this cache is best-effort only.
+			}
+		}
+
+		function clearAllRosterCache() {
+			const keysToDelete = [];
+			for (let i = 0; i < localStorage.length; i += 1) {
+				const key = localStorage.key(i);
+				if (typeof key === "string" && key.startsWith(ROSTER_CACHE_KEY_PREFIX)) {
+					keysToDelete.push(key);
+				}
+			}
+			for (const key of keysToDelete) {
+				localStorage.removeItem(key);
+			}
+		}
+
+		function publishCacheClearSignal() {
+			const token = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+			cacheClearTokenBridge.value = token;
+			cacheClearTokenBridge.dispatchEvent(new Event("input", { bubbles: true }));
+			cacheClearTokenBridge.dispatchEvent(new Event("change", { bubbles: true }));
+		}
+
+		function applyPlayersToSelect(players, selectedPlayerId, previousPlayerId, selectionClearedBeforeFetch) {
+			const nextOptions = [
+				makeOption("", "Select a player…"),
+				...players.map((p) => makeOption(p.id, p.label)),
+			];
+			playerSelect.replaceChildren(...nextOptions);
+			playerSelect.disabled = players.length === 0;
+
+			const canKeepSelection =
+				selectedPlayerId !== "" &&
+				players.some((p) => p.id === selectedPlayerId);
+			if (canKeepSelection) {
+				setSelectValue(playerSelect, selectedPlayerId);
+				return;
+			}
+
+			setSelectValue(playerSelect, "");
+			if (previousPlayerId !== "" && !selectionClearedBeforeFetch) {
+				dispatchSelectChange(playerSelect);
+			}
+		}
+
 		async function loadPlayersForTeam(teamId, options) {
 			if (rosterAbortController !== null) {
 				rosterAbortController.abort();
@@ -150,6 +272,17 @@
 			const selectedPlayerId = options?.preserveExistingSelection
 				? previousPlayerId
 				: "";
+			const shouldUseCache = !options?.forceRefresh;
+			const cachedPlayers = shouldUseCache ? readRosterCache(teamId) : null;
+			if (cachedPlayers !== null) {
+				applyPlayersToSelect(
+					cachedPlayers,
+					selectedPlayerId,
+					previousPlayerId,
+					selectionClearedBeforeFetch,
+				);
+				return;
+			}
 			clearPlayerSelect("Loading players…", true);
 
 			try {
@@ -179,25 +312,13 @@
 						)
 					: [];
 
-				const nextOptions = [
-					makeOption("", "Select a player…"),
-					...players.map((p) => makeOption(p.id, p.label)),
-				];
-				playerSelect.replaceChildren(...nextOptions);
-				playerSelect.disabled = players.length === 0;
-
-				const canKeepSelection =
-					selectedPlayerId !== "" &&
-					players.some((p) => p.id === selectedPlayerId);
-				if (canKeepSelection) {
-					setSelectValue(playerSelect, selectedPlayerId);
-					return;
-				}
-
-				setSelectValue(playerSelect, "");
-				if (previousPlayerId !== "" && !selectionClearedBeforeFetch) {
-					dispatchSelectChange(playerSelect);
-				}
+				writeRosterCache(teamId, players);
+				applyPlayersToSelect(
+					players,
+					selectedPlayerId,
+					previousPlayerId,
+					selectionClearedBeforeFetch,
+				);
 			} catch (err) {
 				if (err instanceof DOMException && err.name === "AbortError") {
 					return;
@@ -212,6 +333,16 @@
 		teamSelect.addEventListener("change", () => {
 			void loadPlayersForTeam(selectValue(teamSelect), {
 				preserveExistingSelection: false,
+			});
+		});
+
+		clearCacheButton.addEventListener("click", () => {
+			clearAllRosterCache();
+			publishCacheClearSignal();
+			statusMessage("Cache cleared");
+			void loadPlayersForTeam(selectValue(teamSelect), {
+				preserveExistingSelection: true,
+				forceRefresh: true,
 			});
 		});
 

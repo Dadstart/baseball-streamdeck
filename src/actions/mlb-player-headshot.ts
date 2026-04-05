@@ -19,17 +19,23 @@ import streamDeck, {
 
 import { getMlbTeamById, isNumericTeamId, teamIdString } from "../mlb/mlb-teams";
 import {
+	clearMlbPlayerHeadshotCache,
 	fetchMlbPlayerHeadshotDataUrl,
 	isNumericPlayerId,
 	playerIdString,
 } from "../services/mlb-headshots";
+import { clearMlbTeamRosterCache } from "../services/mlb-roster";
 
 type MlbPlayerHeadshotSettings = {
 	/** Stats API team id (PI may persist string or number). */
 	team?: string | number;
 	/** Stats API person id (PI may persist string or number). */
 	playerId?: string | number;
+	/** Updated by Property Inspector cache-clear button; used to trigger cache invalidation in plugin. */
+	cacheClearToken?: string | number;
 };
+
+let lastCacheClearToken = "";
 
 /** Key title when we cannot render a valid headshot yet. */
 function titleForHeadshotSettings(settings: MlbPlayerHeadshotSettings): string {
@@ -71,6 +77,14 @@ async function updateHeadshotKeyForSettings(
 			playerId: playerId,
 		};
 		await key.setSettings(effective);
+	}
+
+	const cacheClearToken = String(effective.cacheClearToken ?? "").trim();
+	if (cacheClearToken !== "" && cacheClearToken !== lastCacheClearToken) {
+		clearMlbPlayerHeadshotCache();
+		clearMlbTeamRosterCache();
+		lastCacheClearToken = cacheClearToken;
+		streamDeck.logger.info("MlbPlayerHeadshot: cleared roster/headshot caches");
 	}
 
 	if (

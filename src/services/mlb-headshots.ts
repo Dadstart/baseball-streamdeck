@@ -13,7 +13,23 @@ const MLB_PLAYER_HEADSHOTS_BASE =
 	"https://img.mlbstatic.com/mlb-photos/image/upload/w_344,h_344,c_pad,b_transparent,q_auto:best,f_png/v1/people";
 
 /** Reuse fetched headshots across key refreshes in one plugin process. */
-const headshotDataUrlCache = new Map<string, string>();
+const headshotDataUrlCache = new Map<
+	string,
+	{
+		readonly dataUrl: string;
+		readonly cachedAtMs: number;
+	}
+>();
+
+/** Keep image cache entries for one week. */
+const HEADSHOT_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Clears all in-memory player headshot cache entries.
+ */
+export function clearMlbPlayerHeadshotCache(): void {
+	headshotDataUrlCache.clear();
+}
 
 /**
  * Trims a Property Inspector `playerId` value (sdpi may store ids as string or number).
@@ -54,10 +70,15 @@ export function mlbPlayerHeadshotUrl(playerId: string): string {
 export async function fetchMlbPlayerHeadshotDataUrl(
 	playerId: string,
 ): Promise<string> {
+	const now = Date.now();
 	const cached = headshotDataUrlCache.get(playerId);
-	if (cached !== undefined) {
-		return cached;
+	if (
+		cached !== undefined &&
+		now - cached.cachedAtMs <= HEADSHOT_CACHE_TTL_MS
+	) {
+		return cached.dataUrl;
 	}
+	headshotDataUrlCache.delete(playerId);
 
 	const res = await fetch(mlbPlayerHeadshotUrl(playerId), {
 		headers: { Accept: "image/avif,image/webp,image/jpeg,image/png,*/*" },
@@ -71,7 +92,9 @@ export async function fetchMlbPlayerHeadshotDataUrl(
 	const bytes = await res.arrayBuffer();
 	const base64 = Buffer.from(bytes).toString("base64");
 	const dataUrl = `data:${contentType};base64,${base64}`;
-	headshotDataUrlCache.set(playerId, dataUrl);
+	headshotDataUrlCache.set(playerId, {
+		dataUrl,
+		cachedAtMs: now,
+	});
 	return dataUrl;
 }
-
