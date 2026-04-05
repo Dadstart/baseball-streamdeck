@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+	<title>MLB Player Headshot</title>
+	<meta charset="utf-8" />
+	<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	<style>
+		sdpi-select {
+			--font-color: var(--input-bg-color);
+		}
+
+		html,
+		body {
+			background: transparent;
+		}
+	</style>
+</head>
+
+<body>
+	<sdpi-item label="Team">
+		<sdpi-select id="teamSelect" setting="team" placeholder="Select a team…">
+			<optgroup label="American League East">
+				<option value="110">BAL — Baltimore Orioles</option>
+				<option value="111">BOS — Boston Red Sox</option>
+				<option value="147">NYY — New York Yankees</option>
+				<option value="139">TB — Tampa Bay Rays</option>
+				<option value="141">TOR — Toronto Blue Jays</option>
+			</optgroup>
+			<optgroup label="American League Central">
+				<option value="145">CWS — Chicago White Sox</option>
+				<option value="114">CLE — Cleveland Guardians</option>
+				<option value="116">DET — Detroit Tigers</option>
+				<option value="118">KC — Kansas City Royals</option>
+				<option value="142">MIN — Minnesota Twins</option>
+			</optgroup>
+			<optgroup label="American League West">
+				<option value="133">ATH — Athletics</option>
+				<option value="117">HOU — Houston Astros</option>
+				<option value="108">LAA — Los Angeles Angels</option>
+				<option value="136">SEA — Seattle Mariners</option>
+				<option value="140">TEX — Texas Rangers</option>
+			</optgroup>
+			<optgroup label="National League East">
+				<option value="144">ATL — Atlanta Braves</option>
+				<option value="146">MIA — Miami Marlins</option>
+				<option value="121">NYM — New York Mets</option>
+				<option value="143">PHI — Philadelphia Phillies</option>
+				<option value="120">WSH — Washington Nationals</option>
+			</optgroup>
+			<optgroup label="National League Central">
+				<option value="112">CHC — Chicago Cubs</option>
+				<option value="113">CIN — Cincinnati Reds</option>
+				<option value="158">MIL — Milwaukee Brewers</option>
+				<option value="134">PIT — Pittsburgh Pirates</option>
+				<option value="138">STL — St. Louis Cardinals</option>
+			</optgroup>
+			<optgroup label="National League West">
+				<option value="109">AZ — Arizona Diamondbacks</option>
+				<option value="115">COL — Colorado Rockies</option>
+				<option value="119">LAD — Los Angeles Dodgers</option>
+				<option value="135">SD — San Diego Padres</option>
+				<option value="137">SF — San Francisco Giants</option>
+			</optgroup>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item label="Player">
+		<sdpi-select
+			id="playerSelect"
+			setting="playerId"
+			placeholder="Select a team first…"
+			disabled
+		></sdpi-select>
+	</sdpi-item>
+
+	<script>
+		const MLB_TEAM_ROSTER_API_BASE = "https://statsapi.mlb.com/api/v1/teams";
+		const NUMERIC_ID_RE = /^\d+$/;
+		const teamSelect = document.getElementById("teamSelect");
+		const playerSelect = document.getElementById("playerSelect");
+		let rosterAbortController = null;
+
+		function selectValue(el) {
+			return String(el?.value ?? "").trim();
+		}
+
+		function setSelectValue(el, value) {
+			el.value = value;
+		}
+
+		function dispatchSelectChange(el) {
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+		}
+
+		function makeOption(value, label) {
+			const opt = document.createElement("option");
+			opt.value = value;
+			opt.textContent = label;
+			return opt;
+		}
+
+		function clearPlayerSelect(placeholder, shouldDisable) {
+			playerSelect.replaceChildren(makeOption("", placeholder));
+			setSelectValue(playerSelect, "");
+			playerSelect.disabled = shouldDisable;
+		}
+
+		function setPlayerSelection(value) {
+			const current = selectValue(playerSelect);
+			setSelectValue(playerSelect, value);
+			if (current !== value) {
+				dispatchSelectChange(playerSelect);
+			}
+		}
+
+		function playerLabelFromRosterRow(row) {
+			const jersey =
+				typeof row?.jerseyNumber === "string" && row.jerseyNumber.trim() !== ""
+					? `#${row.jerseyNumber.trim()} `
+					: "";
+			const position =
+				typeof row?.position?.abbreviation === "string" &&
+				row.position.abbreviation.trim() !== ""
+					? ` — ${row.position.abbreviation.trim()}`
+					: "";
+			return `${jersey}${row.person.fullName}${position}`;
+		}
+
+		async function loadPlayersForTeam(teamId, options) {
+			if (rosterAbortController !== null) {
+				rosterAbortController.abort();
+			}
+			rosterAbortController = new AbortController();
+			const previousPlayerId = selectValue(playerSelect);
+			const selectionClearedBeforeFetch =
+				!options?.preserveExistingSelection && previousPlayerId !== "";
+
+			if (!NUMERIC_ID_RE.test(teamId)) {
+				clearPlayerSelect("Select a team first…", true);
+				if (previousPlayerId !== "") {
+					dispatchSelectChange(playerSelect);
+				}
+				return;
+			}
+
+			if (selectionClearedBeforeFetch) {
+				setPlayerSelection("");
+			}
+			const selectedPlayerId = options?.preserveExistingSelection
+				? previousPlayerId
+				: "";
+			clearPlayerSelect("Loading players…", true);
+
+			try {
+				const q = new URLSearchParams({ rosterType: "active" });
+				const url = `${MLB_TEAM_ROSTER_API_BASE}/${teamId}/roster?${q.toString()}`;
+				const res = await fetch(url, { signal: rosterAbortController.signal });
+				if (!res.ok) {
+					throw new Error(`HTTP ${res.status}`);
+				}
+				const body = await res.json();
+				const players = Array.isArray(body?.roster)
+					? body.roster
+						.filter((row) => {
+							const id = Number(row?.person?.id);
+							const fullName = String(row?.person?.fullName ?? "").trim();
+							return Number.isFinite(id) && fullName !== "";
+						})
+						.map((row) => ({
+							id: String(Number(row.person.id)),
+							sortName: String(row.person.fullName).trim(),
+							label: playerLabelFromRosterRow(row),
+						}))
+						.sort((a, b) =>
+							a.sortName.localeCompare(b.sortName, "en", {
+								sensitivity: "base",
+							}),
+						)
+					: [];
+
+				const nextOptions = [
+					makeOption("", "Select a player…"),
+					...players.map((p) => makeOption(p.id, p.label)),
+				];
+				playerSelect.replaceChildren(...nextOptions);
+				playerSelect.disabled = players.length === 0;
+
+				const canKeepSelection =
+					selectedPlayerId !== "" &&
+					players.some((p) => p.id === selectedPlayerId);
+				if (canKeepSelection) {
+					setSelectValue(playerSelect, selectedPlayerId);
+					return;
+				}
+
+				setSelectValue(playerSelect, "");
+				if (previousPlayerId !== "" && !selectionClearedBeforeFetch) {
+					dispatchSelectChange(playerSelect);
+				}
+			} catch (err) {
+				if (err instanceof DOMException && err.name === "AbortError") {
+					return;
+				}
+				clearPlayerSelect("Roster unavailable", true);
+				if (previousPlayerId !== "" && !selectionClearedBeforeFetch) {
+					dispatchSelectChange(playerSelect);
+				}
+			}
+		}
+
+		teamSelect.addEventListener("change", () => {
+			void loadPlayersForTeam(selectValue(teamSelect), {
+				preserveExistingSelection: false,
+			});
+		});
+
+		function initPlayersFromSettings(retriesLeft) {
+			const teamId = selectValue(teamSelect);
+			if (NUMERIC_ID_RE.test(teamId) || retriesLeft <= 0) {
+				void loadPlayersForTeam(teamId, { preserveExistingSelection: true });
+				return;
+			}
+			setTimeout(() => initPlayersFromSettings(retriesLeft - 1), 100);
+		}
+
+		clearPlayerSelect("Select a team first…", true);
+		initPlayersFromSettings(8);
+	</script>
+</body>
+
+</html>

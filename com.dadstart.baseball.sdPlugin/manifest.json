@@ -22,6 +22,24 @@
 			]
 		},
 		{
+			"Name": "Player Headshot",
+			"UUID": "com.dadstart.baseball.playerheadshot",
+			"Icon": "imgs/actions/team-logo/icon",
+			"Tooltip": "Show an MLB player headshot. Pick team first, then player.",
+			"PropertyInspectorPath": "ui/mlb-player-headshot.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/team-logo/key",
+					"TitleAlignment": "middle",
+					"FontStyle": "Bold",
+					"FontSize": 11
+				}
+			]
+		},
+		{
 			"Name": "Game Score",
 			"UUID": "com.dadstart.baseball.gamescore",
 			"Icon": "imgs/plugin/category-icon",
