@@ -5,9 +5,12 @@
  * Returned values are Stream Deck-ready data URLs.
  */
 
-/** CDN path prefix for player headshots. */
+/**
+ * CDN path prefix for player headshots (Cloudinary transforms).
+ * Square canvas + pad preserves aspect ratio so Stream Deck does not stretch the key image.
+ */
 const MLB_PLAYER_HEADSHOTS_BASE =
-	"https://img.mlbstatic.com/mlb-photos/image/upload/w_344,q_auto:best/v1/people";
+	"https://img.mlbstatic.com/mlb-photos/image/upload/w_344,h_344,c_pad,b_transparent,q_auto:best,f_png/v1/people";
 
 /** Reuse fetched headshots across key refreshes in one plugin process. */
 const headshotDataUrlCache = new Map<string, string>();
@@ -64,7 +67,7 @@ export async function fetchMlbPlayerHeadshotDataUrl(
 	}
 
 	const contentType =
-		(res.headers.get("content-type") ?? "").trim() || "image/jpeg";
+		(res.headers.get("content-type") ?? "").trim() || "image/png";
 	const bytes = await res.arrayBuffer();
 	const base64 = Buffer.from(bytes).toString("base64");
 	const dataUrl = `data:${contentType};base64,${base64}`;
