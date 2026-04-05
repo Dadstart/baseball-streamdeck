@@ -24,7 +24,10 @@ import {
 	isNumericPlayerId,
 	playerIdString,
 } from "../services/mlb-headshots";
-import { clearMlbTeamRosterCache } from "../services/mlb-roster";
+import {
+	clearMlbTeamRosterCache,
+	fetchMlbTeamActiveRoster,
+} from "../services/mlb-roster";
 
 type MlbPlayerHeadshotSettings = {
 	/** Stats API team id (PI may persist string or number). */
@@ -137,8 +140,40 @@ export class MlbPlayerHeadshot extends SingletonAction<MlbPlayerHeadshotSettings
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbPlayerHeadshotSettings>,
 	): Promise<void> {
-		await updateHeadshotKeyForSettings(ev.action, ev.payload.settings, {
-			normalizePersistedIds: false,
-		});
+		const settings = ev.payload.settings;
+		const teamId = teamIdString(settings.team);
+		if (!teamId || !isNumericTeamId(teamId)) {
+			await ev.action.setTitle("Set team");
+			return;
+		}
+
+		try {
+			const roster = await fetchMlbTeamActiveRoster(Number(teamId));
+			if (roster.length === 0) {
+				await ev.action.setTitle("No\nroster");
+				return;
+			}
+
+			const currentPlayerId = playerIdString(settings.playerId);
+			const currentIndex = roster.findIndex(
+				(p) => String(p.id) === currentPlayerId,
+			);
+			const nextIndex =
+				currentIndex < 0 ? 0 : (currentIndex + 1) % roster.length;
+			const nextPlayerId = String(roster[nextIndex]!.id);
+
+			const merged: MlbPlayerHeadshotSettings = {
+				...settings,
+				playerId: nextPlayerId,
+			};
+			await ev.action.setSettings(merged);
+			await updateHeadshotKeyForSettings(ev.action, merged, {
+				normalizePersistedIds: false,
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			streamDeck.logger.error(`MlbPlayerHeadshot: failed to cycle player: ${message}`);
+			await ev.action.setTitle("Roster\nerr");
+		}
 	}
 }
