@@ -74,6 +74,24 @@
 		></sdpi-select>
 	</sdpi-item>
 
+	<sdpi-item label="Auto-cycle">
+		<sdpi-select setting="autoCycleEnabled">
+			<option value="false" selected>Off</option>
+			<option value="true">On</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item label="Refresh">
+		<sdpi-select setting="autoCycleIntervalSeconds">
+			<option value="3">Every 3s</option>
+			<option value="5">Every 5s</option>
+			<option value="10" selected>Every 10s</option>
+			<option value="15">Every 15s</option>
+			<option value="30">Every 30s</option>
+			<option value="60">Every 60s</option>
+		</sdpi-select>
+	</sdpi-item>
+
 	<sdpi-item label="Cache">
 		<div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
 			<button id="clearCacheButton" type="button">Clear cache</button>

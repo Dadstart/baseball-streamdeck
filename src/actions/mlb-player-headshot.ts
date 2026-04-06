@@ -14,6 +14,7 @@ import streamDeck, {
 	KeyDownEvent,
 	SingletonAction,
 	WillAppearEvent,
+	WillDisappearEvent,
 	type KeyAction,
 } from "@elgato/streamdeck";
 
@@ -36,9 +37,17 @@ type MlbPlayerHeadshotSettings = {
 	playerId?: string | number;
 	/** Updated by Property Inspector cache-clear button; used to trigger cache invalidation in plugin. */
 	cacheClearToken?: string | number;
+	/** Property Inspector toggle: enables automatic roster cycling while key is visible. */
+	autoCycleEnabled?: string | boolean;
+	/** Auto-cycle interval in seconds (PI writes string values). */
+	autoCycleIntervalSeconds?: string | number;
 };
 
 let lastCacheClearToken = "";
+const DEFAULT_AUTO_CYCLE_SECONDS = 10;
+const MIN_AUTO_CYCLE_SECONDS = 3;
+const MAX_AUTO_CYCLE_SECONDS = 120;
+const autoCycleTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 /** Key title when we cannot render a valid headshot yet. */
 function titleForHeadshotSettings(settings: MlbPlayerHeadshotSettings): string {
@@ -52,6 +61,87 @@ function titleForHeadshotSettings(settings: MlbPlayerHeadshotSettings): string {
 		return `${abbr}\nPlayer?`;
 	}
 	return "";
+}
+
+function isAutoCycleEnabled(settings: MlbPlayerHeadshotSettings): boolean {
+	const raw = String(settings.autoCycleEnabled ?? "").trim().toLowerCase();
+	return raw === "true" || raw === "1" || settings.autoCycleEnabled === true;
+}
+
+function resolveAutoCycleSeconds(settings: MlbPlayerHeadshotSettings): number {
+	const raw = String(settings.autoCycleIntervalSeconds ?? "").trim();
+	if (raw === "") {
+		return DEFAULT_AUTO_CYCLE_SECONDS;
+	}
+	const n = Math.floor(Number(raw));
+	if (!Number.isFinite(n)) {
+		return DEFAULT_AUTO_CYCLE_SECONDS;
+	}
+	return Math.max(MIN_AUTO_CYCLE_SECONDS, Math.min(MAX_AUTO_CYCLE_SECONDS, n));
+}
+
+function clearAutoCycleTimer(context: string): void {
+	const timer = autoCycleTimers.get(context);
+	if (timer !== undefined) {
+		clearInterval(timer);
+		autoCycleTimers.delete(context);
+	}
+}
+
+async function cycleToNextRosterPlayer(
+	key: KeyAction<MlbPlayerHeadshotSettings>,
+	settings: MlbPlayerHeadshotSettings,
+): Promise<void> {
+	const teamId = teamIdString(settings.team);
+	if (!teamId || !isNumericTeamId(teamId)) {
+		await key.setTitle("Set team");
+		return;
+	}
+
+	try {
+		const roster = await fetchMlbTeamActiveRoster(Number(teamId));
+		if (roster.length === 0) {
+			await key.setTitle("No\nroster");
+			return;
+		}
+
+		const currentPlayerId = playerIdString(settings.playerId);
+		const currentIndex = roster.findIndex(
+			(p) => String(p.id) === currentPlayerId,
+		);
+		const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % roster.length;
+		const nextPlayerId = String(roster[nextIndex]!.id);
+
+		const merged: MlbPlayerHeadshotSettings = {
+			...settings,
+			playerId: nextPlayerId,
+		};
+		await key.setSettings(merged);
+		await updateHeadshotKeyForSettings(key, merged, {
+			normalizePersistedIds: false,
+		});
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		streamDeck.logger.error(`MlbPlayerHeadshot: failed to cycle player: ${message}`);
+		await key.setTitle("Roster\nerr");
+	}
+}
+
+function scheduleAutoCycleForKey(
+	key: KeyAction<MlbPlayerHeadshotSettings>,
+	settings: MlbPlayerHeadshotSettings,
+): void {
+	clearAutoCycleTimer(key.id);
+	if (!isAutoCycleEnabled(settings)) {
+		return;
+	}
+	const intervalMs = resolveAutoCycleSeconds(settings) * 1000;
+	autoCycleTimers.set(
+		key.id,
+		setInterval(() => {
+			void key.getSettings().then((latest) => cycleToNextRosterPlayer(key, latest));
+		}, intervalMs),
+	);
 }
 
 /**
@@ -97,6 +187,7 @@ async function updateHeadshotKeyForSettings(
 		!isNumericPlayerId(playerId)
 	) {
 		await key.setTitle(titleForHeadshotSettings(effective));
+		scheduleAutoCycleForKey(key, effective);
 		return;
 	}
 
@@ -109,6 +200,8 @@ async function updateHeadshotKeyForSettings(
 		streamDeck.logger.error(`MlbPlayerHeadshot: ${message}`);
 		await key.setTitle("Headshot\nerr");
 	}
+
+	scheduleAutoCycleForKey(key, effective);
 }
 
 /** Key action UUID `com.dadstart.baseball.playerheadshot` (see manifest). */
@@ -136,44 +229,14 @@ export class MlbPlayerHeadshot extends SingletonAction<MlbPlayerHeadshotSettings
 		});
 	}
 
+	override onWillDisappear(ev: WillDisappearEvent<MlbPlayerHeadshotSettings>): void {
+		clearAutoCycleTimer(ev.action.id);
+	}
+
 	/** Key press re-renders from latest saved settings. */
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbPlayerHeadshotSettings>,
 	): Promise<void> {
-		const settings = ev.payload.settings;
-		const teamId = teamIdString(settings.team);
-		if (!teamId || !isNumericTeamId(teamId)) {
-			await ev.action.setTitle("Set team");
-			return;
-		}
-
-		try {
-			const roster = await fetchMlbTeamActiveRoster(Number(teamId));
-			if (roster.length === 0) {
-				await ev.action.setTitle("No\nroster");
-				return;
-			}
-
-			const currentPlayerId = playerIdString(settings.playerId);
-			const currentIndex = roster.findIndex(
-				(p) => String(p.id) === currentPlayerId,
-			);
-			const nextIndex =
-				currentIndex < 0 ? 0 : (currentIndex + 1) % roster.length;
-			const nextPlayerId = String(roster[nextIndex]!.id);
-
-			const merged: MlbPlayerHeadshotSettings = {
-				...settings,
-				playerId: nextPlayerId,
-			};
-			await ev.action.setSettings(merged);
-			await updateHeadshotKeyForSettings(ev.action, merged, {
-				normalizePersistedIds: false,
-			});
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			streamDeck.logger.error(`MlbPlayerHeadshot: failed to cycle player: ${message}`);
-			await ev.action.setTitle("Roster\nerr");
-		}
+		await cycleToNextRosterPlayer(ev.action, ev.payload.settings);
 	}
 }
