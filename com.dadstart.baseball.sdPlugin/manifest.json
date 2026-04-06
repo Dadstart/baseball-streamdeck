@@ -1,6 +1,6 @@
 {
 	"Name": "baseball",
-	"Version": "0.1.0.0",
+	"Version": "1.0.0.0",
 	"Author": "Dadstart",
 	"Actions": [
 		{
@@ -9,6 +9,24 @@
 			"Icon": "imgs/actions/team-logo/icon",
 			"Tooltip": "Show an MLB team logo from mlbstatic.com on press.",
 			"PropertyInspectorPath": "ui/mlb-team-logo.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/team-logo/key",
+					"TitleAlignment": "middle",
+					"FontStyle": "Bold",
+					"FontSize": 11
+				}
+			]
+		},
+		{
+			"Name": "Player Headshot",
+			"UUID": "com.dadstart.baseball.playerheadshot",
+			"Icon": "imgs/actions/team-logo/icon",
+			"Tooltip": "Show an MLB player headshot. Pick team first, then player.",
+			"PropertyInspectorPath": "ui/mlb-player-headshot.html",
 			"Controllers": [
 				"Keypad"
 			],
@@ -34,8 +52,9 @@
 				{
 					"Image": "imgs/actions/game-score/key",
 					"TitleAlignment": "middle",
-					"FontStyle": "Bold",
-					"FontSize": 11
+					"FontFamily": "Courier New",
+					"FontStyle": "Regular",
+					"FontSize": 14
 				}
 			]
 		},
@@ -52,7 +71,7 @@
 					"Image": "imgs/actions/division-standings/key",
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
-					"FontStyle": "Bold",
+					"FontStyle": "Regular",
 					"FontSize": 11
 				}
 			]
@@ -60,7 +79,7 @@
 		{
 			"Name": "Stat Leaders",
 			"UUID": "com.dadstart.baseball.statsleaders",
-			"Icon": "imgs/actions/division-standings/icon",
+			"Icon": "imgs/actions/stats-leaders/icon",
 			"Tooltip": "MLB regular-season stat leaders. Press to cycle MLB, AL, NL.",
 			"PropertyInspectorPath": "ui/mlb-stats-leaders.html",
 			"Controllers": [
@@ -68,10 +87,10 @@
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/division-standings/key",
+					"Image": "imgs/actions/stats-leaders/key",
 					"TitleAlignment": "middle",
 					"FontFamily": "Courier New",
-					"FontStyle": "Bold",
+					"FontStyle": "Regular",
 					"FontSize": 11
 				}
 			]

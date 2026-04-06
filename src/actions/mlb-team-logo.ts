@@ -9,7 +9,7 @@
  * - `randomLogoIntervalSec` — seconds between random logo variants; `0` = off (manual style + key cycles in
  *   order). Default **30** when unset. Legacy `randomLogos: false` is treated as `0`.
  *
- * **Behavior:** When the interval is &gt; 0, each tick (and key press) picks a random variant and a timer
+ * **Behavior:** When the interval is greater than 0, each tick (and key press) picks a random variant and a timer
  * repeats on that interval. When `0`, the dropdown variant is shown and key press cycles in fixed order.
  *
  * **Display:** Uses `setImage` with an SVG data URL per Elgato SDK guidance; clears title when the logo shows.
@@ -25,7 +25,7 @@ import streamDeck, {
 	type KeyAction,
 } from "@elgato/streamdeck";
 
-import { getMlbTeamById } from "../mlb/mlb-teams";
+import { getMlbTeamById, isNumericTeamId, teamIdString } from "../mlb/mlb-teams";
 import {
 	DEFAULT_MLB_LOGO_VARIANT,
 	fetchMlbTeamLogoSvg,
@@ -58,6 +58,7 @@ type MlbLogoSettings = {
 	randomLogos?: boolean;
 };
 
+/** One interval per key; cleared when randomization is off or team is invalid. */
 const randomizeTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 function clearRandomizeTimer(context: string): void {
@@ -68,6 +69,7 @@ function clearRandomizeTimer(context: string): void {
 	}
 }
 
+/** Starts or replaces the random-variant timer (no-op when `intervalSec` is 0). */
 function scheduleRandomizeTimer(
 	key: KeyAction<MlbLogoSettings>,
 	context: string,
@@ -85,6 +87,10 @@ function scheduleRandomizeTimer(
 	);
 }
 
+/**
+ * Resolves seconds between random logo picks: explicit field wins, then legacy `randomLogos === false` → 0,
+ * else {@link DEFAULT_RANDOM_LOGO_INTERVAL_SEC} (clamped to {@link MAX_RANDOM_LOGO_INTERVAL_SEC}).
+ */
 function resolveRandomLogoIntervalSec(settings: MlbLogoSettings): number {
 	const raw = settings.randomLogoIntervalSec;
 	if (raw !== undefined && raw !== null && String(raw).trim() !== "") {
@@ -102,25 +108,11 @@ function resolveRandomLogoIntervalSec(settings: MlbLogoSettings): number {
 	return DEFAULT_RANDOM_LOGO_INTERVAL_SEC;
 }
 
-/** Trims string form of `settings.team`; empty if missing. */
-function teamIdString(settings: MlbLogoSettings): string {
-	const raw = settings.team;
-	if (raw === undefined || raw === null) {
-		return "";
-	}
-	return String(raw).trim();
-}
-
-/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
-function isNumericTeamId(id: string): boolean {
-	return /^\d+$/.test(id);
-}
-
 /**
  * Key title when not showing a loaded logo: abbreviation from {@link getMlbTeamById}, or fallbacks.
  */
 function titleForMlbLogoSettings(settings: MlbLogoSettings): string {
-	const id = teamIdString(settings);
+	const id = teamIdString(settings.team);
 	if (!id || !isNumericTeamId(id)) {
 		return "Team?";
 	}
@@ -135,6 +127,7 @@ function resolveLogoVariant(value: string | undefined): MlbLogoVariant {
 	return DEFAULT_MLB_LOGO_VARIANT;
 }
 
+/** Uniform random choice from {@link LOGO_VARIANT_CYCLE}. */
 function randomLogoVariant(): MlbLogoVariant {
 	return LOGO_VARIANT_CYCLE[
 		Math.floor(Math.random() * LOGO_VARIANT_CYCLE.length)
@@ -178,6 +171,7 @@ async function applyMlbTeamLogoToKey(
 	}
 }
 
+/** Interval callback: re-reads settings, bails if randomization was turned off or team is invalid. */
 async function randomizeLogoTick(
 	key: KeyAction<MlbLogoSettings>,
 ): Promise<void> {
@@ -187,7 +181,7 @@ async function randomizeLogoTick(
 		clearRandomizeTimer(key.id);
 		return;
 	}
-	const teamId = teamIdString(settings);
+	const teamId = teamIdString(settings.team);
 	if (!teamId || !isNumericTeamId(teamId)) {
 		clearRandomizeTimer(key.id);
 		return;
@@ -206,7 +200,7 @@ async function updateKeyForSettings(
 	settings: MlbLogoSettings,
 	{ normalizePersistedTeam }: { normalizePersistedTeam: boolean },
 ): Promise<void> {
-	const teamId = teamIdString(settings);
+	const teamId = teamIdString(settings.team);
 	if (!teamId || !isNumericTeamId(teamId)) {
 		clearRandomizeTimer(key.id);
 		await key.setTitle(titleForMlbLogoSettings(settings));
@@ -249,6 +243,7 @@ export class MlbTeamLogo extends SingletonAction<MlbLogoSettings> {
 		});
 	}
 
+	/** Stop the random-logo timer when the key is removed from the canvas. */
 	override onWillDisappear(ev: WillDisappearEvent<MlbLogoSettings>): void {
 		clearRandomizeTimer(ev.action.id);
 	}
@@ -272,7 +267,7 @@ export class MlbTeamLogo extends SingletonAction<MlbLogoSettings> {
 		ev: KeyDownEvent<MlbLogoSettings>,
 	): Promise<void> {
 		const settings = ev.payload.settings;
-		const teamId = teamIdString(settings);
+		const teamId = teamIdString(settings.team);
 		if (!teamId || !isNumericTeamId(teamId)) {
 			await ev.action.setTitle("Set team id");
 			streamDeck.logger.warn(

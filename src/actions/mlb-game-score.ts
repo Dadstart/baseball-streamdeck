@@ -1,9 +1,9 @@
 /**
  * @module actions/mlb-game-score
  *
- * Stream Deck **key action** that cycles through four views for the selected team (see
- * {@link ../services/mlb-schedule.ts} {@link fetchCurrentOrNextMlbGame} and
- * {@link ../services/mlb-schedule.ts} {@link fetchMlbGameScoreCycleViews}):
+ * Stream Deck **key action** that cycles through four views for the selected team. Data is loaded with
+ * `fetchCurrentOrNextMlbGame` (slot 0) and `fetchMlbGameScoreCycleViews` (recent finals) from
+ * {@link ../services/mlb-schedule}.
  *
  * 1. **Live or next upcoming** — current live game if any; otherwise earliest game not yet live/final.
  * 2–4. **Previous three games** — most recent finals, newest first (date + scores).
@@ -28,7 +28,7 @@ import streamDeck, {
 	type KeyAction,
 } from "@elgato/streamdeck";
 
-import { getMlbTeamById } from "../mlb/mlb-teams";
+import { getMlbTeamById, isNumericTeamId, teamIdString } from "../mlb/mlb-teams";
 import {
 	fetchCurrentOrNextMlbGame,
 	fetchMlbGameScoreCycleViews,
@@ -51,20 +51,6 @@ type MlbGameScoreSettings = {
 	scoreViewIndex?: number;
 };
 
-/** Trims string form of `settings.team`; empty if missing. */
-function teamIdString(settings: MlbGameScoreSettings): string {
-	const raw = settings.team;
-	if (raw === undefined || raw === null) {
-		return "";
-	}
-	return String(raw).trim();
-}
-
-/** True for non-empty digit-only ids (Stats API team ids are positive integers). */
-function isNumericTeamId(id: string): boolean {
-	return /^\d+$/.test(id);
-}
-
 /** Abbreviation for title lines when we only have a numeric id. */
 function abbrevForNumericTeamId(idNum: number, fallbackId: string): string {
 	return getMlbTeamById(idNum)?.abbreviation ?? fallbackId;
@@ -74,13 +60,14 @@ function abbrevForNumericTeamId(idNum: number, fallbackId: string): string {
  * Key title when not showing a loaded score: `Team?` if missing/invalid id, else known abbreviation or id.
  */
 function titleForMlbGameScoreSettings(settings: MlbGameScoreSettings): string {
-	const id = teamIdString(settings);
+	const id = teamIdString(settings.team);
 	if (!id || !isNumericTeamId(id)) {
 		return "Team?";
 	}
 	return abbrevForNumericTeamId(Number(id), id);
 }
 
+/** Wraps `scoreViewIndex` to `0…{@link SCORE_VIEW_SLOT_COUNT} - 1` (invalid / missing → `0`). */
 function resolveScoreViewIndex(settings: MlbGameScoreSettings): number {
 	const raw = settings.scoreViewIndex ?? 0;
 	const n = Math.floor(Number(raw));
@@ -90,6 +77,7 @@ function resolveScoreViewIndex(settings: MlbGameScoreSettings): number {
 	return ((n % SCORE_VIEW_SLOT_COUNT) + SCORE_VIEW_SLOT_COUNT) % SCORE_VIEW_SLOT_COUNT;
 }
 
+/** One interval per Stream Deck key `context` id. */
 const refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 function clearRefreshTimer(context: string): void {
@@ -108,7 +96,7 @@ async function applyScoreToKey(
 	key: KeyAction<MlbGameScoreSettings>,
 	settings: MlbGameScoreSettings,
 ): Promise<void> {
-	const teamId = teamIdString(settings);
+	const teamId = teamIdString(settings.team);
 	if (!teamId || !isNumericTeamId(teamId)) {
 		await key.setTitle(titleForMlbGameScoreSettings(settings));
 		return;
@@ -134,7 +122,7 @@ async function applyScoreToKey(
 			await key.setTitle(`${abbrLine}\n—`);
 			return;
 		}
-		await key.setTitle(formatMlbCycleGameTitle(past, "recent"));
+		await key.setTitle(formatMlbCycleGameTitle(past, "recent", idNum));
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		streamDeck.logger.error(`MlbGameScore: ${message}`);
@@ -142,6 +130,7 @@ async function applyScoreToKey(
 	}
 }
 
+/** Re-fetches using latest saved settings every {@link REFRESH_MS} (live scores / schedule). */
 function scheduleRefresh(
 	key: KeyAction<MlbGameScoreSettings>,
 	context: string,
@@ -166,7 +155,7 @@ async function syncMlbGameScoreKey(
 ): Promise<void> {
 	let effective = settings;
 	if (normalizePersistedTeam) {
-		const teamId = teamIdString(settings);
+		const teamId = teamIdString(settings.team);
 		if (
 			teamId &&
 			isNumericTeamId(teamId) &&
@@ -197,6 +186,7 @@ export class MlbGameScore extends SingletonAction<MlbGameScoreSettings> {
 		});
 	}
 
+	/** Stop polling when the key leaves the canvas. */
 	override onWillDisappear(ev: WillDisappearEvent<MlbGameScoreSettings>): void {
 		clearRefreshTimer(ev.action.id);
 	}
@@ -219,7 +209,7 @@ export class MlbGameScore extends SingletonAction<MlbGameScoreSettings> {
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbGameScoreSettings>,
 	): Promise<void> {
-		const teamId = teamIdString(ev.payload.settings);
+		const teamId = teamIdString(ev.payload.settings.team);
 		if (!teamId || !isNumericTeamId(teamId)) {
 			await ev.action.setTitle("Set team");
 			return;

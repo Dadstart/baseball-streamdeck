@@ -1,11 +1,13 @@
 /**
  * @module actions/mlb-stats-leaders
  *
- * Stream Deck key that shows **MLB stat leaders** (Stats API `/api/v1/stats/leaders`). **Key press**
- * cycles league scope: MLB → AL → NL → MLB.
+ * Stream Deck key that shows **MLB stat leaders** ({@link fetchMlbStatLeaders} → Stats API `/api/v1/stats/leaders`).
+ * **Key press** cycles league scope: MLB → AL → NL → MLB (see {@link LEAGUE_CYCLE}).
  *
- * **Settings:** `leaderStatKey`, `leaderLeagueScope`, `leaderRowCount`, `leaderSeason`
- * — see Property Inspector `mlb-stats-leaders.html`. Refetch interval is fixed at 30 minutes.
+ * **Settings:** `leaderStatKey`, `leaderLeagueScope`, `leaderRowCount`, `leaderSeason` — Property Inspector
+ * `mlb-stats-leaders.html`. Default row count matches PI (`3`); see {@link DEFAULT_ROW_COUNT}.
+ *
+ * **Refresh:** {@link REFRESH_MS} while the key is visible.
  */
 
 import streamDeck, {
@@ -26,10 +28,12 @@ import {
 } from "../services/mlb-leaders";
 
 const REFRESH_MS = 30 * 60_000;
-const DEFAULT_ROW_COUNT = 4;
+/** Used when `leaderRowCount` is missing or invalid; must stay aligned with PI default. */
+const DEFAULT_ROW_COUNT = 3;
 const MIN_ROW_COUNT = 3;
 const MAX_ROW_COUNT = 7;
 
+/** Order for key-press cycling; values are persisted as `leaderLeagueScope`. */
 const LEAGUE_CYCLE: readonly MlbStatLeadersLeagueScope[] = [
 	"mlb",
 	"al",
@@ -44,6 +48,7 @@ type MlbStatsLeadersSettings = {
 	leaderSeason?: string;
 };
 
+/** Maps PI / stored strings to API scope; accepts Stats API league ids `103` / `104`. */
 function resolveLeagueScope(raw: string | undefined): MlbStatLeadersLeagueScope {
 	const t = (raw ?? "").trim().toLowerCase();
 	if (t === "al" || t === "103") {
@@ -55,6 +60,7 @@ function resolveLeagueScope(raw: string | undefined): MlbStatLeadersLeagueScope 
 	return "mlb";
 }
 
+/** Clamps to {@link MIN_ROW_COUNT}…{@link MAX_ROW_COUNT}; invalid / empty → {@link DEFAULT_ROW_COUNT}. */
 function resolveRowCount(settings: MlbStatsLeadersSettings): number {
 	const raw = settings.leaderRowCount;
 	if (raw === undefined || raw === null) {
@@ -71,6 +77,7 @@ function resolveRowCount(settings: MlbStatsLeadersSettings): number {
 	return Math.min(MAX_ROW_COUNT, Math.max(MIN_ROW_COUNT, n));
 }
 
+/** Four-digit year enables API `season` query and a short year suffix on the title. */
 function resolveSeason(settings: MlbStatsLeadersSettings): {
 	season: string | undefined;
 	showInTitle: boolean;
@@ -85,6 +92,7 @@ function resolveSeason(settings: MlbStatsLeadersSettings): {
 	return { season: undefined, showInTitle: false };
 }
 
+/** Next scope in {@link LEAGUE_CYCLE}; unknown current falls through to `"al"`. */
 function nextLeagueScope(
 	current: MlbStatLeadersLeagueScope,
 ): MlbStatLeadersLeagueScope {
@@ -95,6 +103,7 @@ function nextLeagueScope(
 	return LEAGUE_CYCLE[(i + 1) % LEAGUE_CYCLE.length]!;
 }
 
+/** One refresh interval per Stream Deck key `context` id. */
 const refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
 function clearRefreshTimer(context: string): void {
@@ -105,6 +114,7 @@ function clearRefreshTimer(context: string): void {
 	}
 }
 
+/** Fetches leaders for resolved settings and sets the key title (or error). */
 async function applyLeadersToKey(
 	key: KeyAction<MlbStatsLeadersSettings>,
 	settings: MlbStatsLeadersSettings,
@@ -133,6 +143,7 @@ async function applyLeadersToKey(
 	}
 }
 
+/** Re-fetches on {@link REFRESH_MS} using latest saved settings. */
 function scheduleRefresh(
 	key: KeyAction<MlbStatsLeadersSettings>,
 	context: string,
@@ -154,6 +165,7 @@ async function syncLeadersKey(
 	scheduleRefresh(key, key.id);
 }
 
+/** Key UUID `com.dadstart.baseball.statsleaders` (see manifest). */
 @action({ UUID: "com.dadstart.baseball.statsleaders" })
 export class MlbStatsLeaders extends SingletonAction<MlbStatsLeadersSettings> {
 	override async onWillAppear(
@@ -165,6 +177,7 @@ export class MlbStatsLeaders extends SingletonAction<MlbStatsLeadersSettings> {
 		await syncLeadersKey(ev.action, ev.payload.settings);
 	}
 
+	/** Stop polling when the key leaves the canvas. */
 	override onWillDisappear(ev: WillDisappearEvent<MlbStatsLeadersSettings>): void {
 		clearRefreshTimer(ev.action.id);
 	}
@@ -178,6 +191,7 @@ export class MlbStatsLeaders extends SingletonAction<MlbStatsLeadersSettings> {
 		await syncLeadersKey(ev.action, ev.payload.settings);
 	}
 
+	/** Persist {@link nextLeagueScope} and refresh. */
 	override async onKeyDown(
 		ev: KeyDownEvent<MlbStatsLeadersSettings>,
 	): Promise<void> {

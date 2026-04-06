@@ -1,17 +1,23 @@
+/**
+ * @module plugin
+ *
+ * Registers all MLB Stream Deck key actions and connects to the Stream Deck app.
+ * Log level `info` keeps plugin logs readable; use `trace` only when debugging SDK traffic.
+ */
 import streamDeck from "@elgato/streamdeck";
 
 import { MlbDivisionStandings } from "./actions/mlb-division-standings";
 import { MlbGameScore } from "./actions/mlb-game-score";
+import { MlbPlayerHeadshot } from "./actions/mlb-player-headshot";
 import { MlbStatsLeaders } from "./actions/mlb-stats-leaders";
 import { MlbTeamLogo } from "./actions/mlb-team-logo";
 
-// We can enable "trace" logging so that all messages between the Stream Deck, and the plugin are recorded. When storing sensitive information
-streamDeck.logger.setLevel("trace");
+streamDeck.logger.setLevel("info");
 
 streamDeck.actions.registerAction(new MlbTeamLogo());
+streamDeck.actions.registerAction(new MlbPlayerHeadshot());
 streamDeck.actions.registerAction(new MlbGameScore());
 streamDeck.actions.registerAction(new MlbDivisionStandings());
 streamDeck.actions.registerAction(new MlbStatsLeaders());
 
-// Finally, connect to the Stream Deck.
 streamDeck.connect();
