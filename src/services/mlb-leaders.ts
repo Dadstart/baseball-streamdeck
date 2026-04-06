@@ -74,6 +74,7 @@ export type MlbStatLeadersFetchParams = {
  * Preset label for keypad header. Keys are `statGroup|leaderCategory` as stored in settings.
  */
 export const MLB_LEADER_STAT_LABEL: Readonly<Record<string, string>> = {
+	"derived|war": "WAR",
 	"hitting|homeRuns": "HR",
 	"hitting|runsBattedIn": "RBI",
 	"hitting|runs": "R",
@@ -92,6 +93,7 @@ export const MLB_LEADER_STAT_LABEL: Readonly<Record<string, string>> = {
 };
 
 export const MLB_LEADER_STAT_KEYS_DEFAULT_ORDER = [
+	"derived|war",
 	"hitting|homeRuns",
 	"hitting|runsBattedIn",
 	"hitting|runs",
@@ -107,6 +109,36 @@ export const MLB_LEADER_STAT_KEYS_DEFAULT_ORDER = [
 	"pitching|saves",
 	"pitching|wins",
 	"pitching|inningsPitched",
+] as const;
+
+const DERIVED_WAR_FETCH_CAP = 50;
+
+type DerivedWarCategoryConfig = {
+	readonly statGroup: "hitting" | "pitching";
+	readonly category: string;
+	readonly weight: number;
+	readonly invert: boolean;
+};
+
+const DERIVED_WAR_CATEGORIES: readonly DerivedWarCategoryConfig[] = [
+	{ statGroup: "hitting", category: "onBasePlusSlugging", weight: 0.4, invert: false },
+	{ statGroup: "hitting", category: "homeRuns", weight: 0.2, invert: false },
+	{ statGroup: "hitting", category: "runsBattedIn", weight: 0.14, invert: false },
+	{ statGroup: "hitting", category: "runs", weight: 0.1, invert: false },
+	{ statGroup: "hitting", category: "stolenBases", weight: 0.06, invert: false },
+	{ statGroup: "hitting", category: "hits", weight: 0.06, invert: false },
+	{ statGroup: "hitting", category: "doubles", weight: 0.04, invert: false },
+	{ statGroup: "pitching", category: "earnedRunAverage", weight: 0.3, invert: true },
+	{
+		statGroup: "pitching",
+		category: "walksAndHitsPerInningPitched",
+		weight: 0.25,
+		invert: true,
+	},
+	{ statGroup: "pitching", category: "strikeouts", weight: 0.18, invert: false },
+	{ statGroup: "pitching", category: "wins", weight: 0.12, invert: false },
+	{ statGroup: "pitching", category: "inningsPitched", weight: 0.1, invert: false },
+	{ statGroup: "pitching", category: "saves", weight: 0.05, invert: false },
 ] as const;
 
 /** Short label for the key header, or the raw key if unmapped. */
@@ -214,6 +246,154 @@ function valueToString(v: string | number | undefined): string {
 	return String(v);
 }
 
+function parseFiniteNumber(v: string | number | undefined): number | null {
+	if (v === undefined || v === null) {
+		return null;
+	}
+	const n = Number(v);
+	return Number.isFinite(n) ? n : null;
+}
+
+type DerivedWarPlayer = {
+	readonly lastName: string;
+	readonly values: Map<string, number>;
+};
+
+function playerKeyFromEntry(e: LeaderEntry): string {
+	const full = (e.person?.fullName ?? "").trim();
+	if (full !== "") {
+		return full.toLowerCase();
+	}
+	return leaderLastName(e.person).toLowerCase();
+}
+
+async function fetchLeaderSplits(
+	params: MlbStatLeadersFetchParams,
+	statGroup: "hitting" | "pitching",
+	categories: readonly string[],
+	limit: number,
+): Promise<readonly LeagueLeadersSplit[]> {
+	const q = new URLSearchParams();
+	q.set("leaderCategories", categories.join(","));
+	q.set("statGroup", statGroup);
+	q.set("statType", "season");
+	q.set("limit", String(limit));
+	q.set("gameType", GAME_TYPE_R);
+	const lid = leagueIdForScope(params.leagueScope);
+	if (lid !== undefined) {
+		q.set("leagueId", lid);
+	}
+	const season = (params.season ?? "").trim();
+	if (season !== "") {
+		q.set("season", season);
+	}
+	const res = await fetch(`${MLB_STATS_LEADERS}?${q.toString()}`);
+	if (!res.ok) {
+		throw new Error(`leaders HTTP ${res.status}`);
+	}
+	const body = (await res.json()) as LeadersResponse;
+	return body.leagueLeaders ?? [];
+}
+
+function normalizeValue(
+	value: number,
+	min: number,
+	max: number,
+	invert: boolean,
+): number {
+	if (max <= min) {
+		return 0.5;
+	}
+	const normalized = (value - min) / (max - min);
+	return invert ? 1 - normalized : normalized;
+}
+
+async function fetchDerivedWarLeaders(
+	params: MlbStatLeadersFetchParams,
+): Promise<MlbStatLeadersBlock> {
+	const hittingCategories = DERIVED_WAR_CATEGORIES.filter(
+		(c) => c.statGroup === "hitting",
+	).map((c) => c.category);
+	const pitchingCategories = DERIVED_WAR_CATEGORIES.filter(
+		(c) => c.statGroup === "pitching",
+	).map((c) => c.category);
+
+	const [hittingSplits, pitchingSplits] = await Promise.all([
+		fetchLeaderSplits(params, "hitting", hittingCategories, DERIVED_WAR_FETCH_CAP),
+		fetchLeaderSplits(params, "pitching", pitchingCategories, DERIVED_WAR_FETCH_CAP),
+	]);
+	const allSplits = [...hittingSplits, ...pitchingSplits];
+
+	const players = new Map<string, DerivedWarPlayer>();
+	const valuesByCategory = new Map<string, number[]>();
+	for (const split of allSplits) {
+		const category = (split.leaderCategory ?? "").trim();
+		if (category === "") {
+			continue;
+		}
+		for (const e of split.leaders ?? []) {
+			const parsedValue = parseFiniteNumber(e.value);
+			if (parsedValue === null) {
+				continue;
+			}
+			const key = playerKeyFromEntry(e);
+			const existing = players.get(key);
+			const player: DerivedWarPlayer = existing ?? {
+				lastName: leaderLastName(e.person),
+				values: new Map<string, number>(),
+			};
+			player.values.set(category, parsedValue);
+			if (!existing) {
+				players.set(key, player);
+			}
+			const bucket = valuesByCategory.get(category) ?? [];
+			bucket.push(parsedValue);
+			valuesByCategory.set(category, bucket);
+		}
+	}
+
+	const scored = [...players.values()]
+		.map((player) => {
+			let score = 0;
+			for (const cfg of DERIVED_WAR_CATEGORIES) {
+				const value = player.values.get(cfg.category);
+				if (value === undefined) {
+					continue;
+				}
+				const categoryValues = valuesByCategory.get(cfg.category) ?? [];
+				if (!categoryValues.length) {
+					continue;
+				}
+				const min = Math.min(...categoryValues);
+				const max = Math.max(...categoryValues);
+				score += cfg.weight * normalizeValue(value, min, max, cfg.invert);
+			}
+			return {
+				lastName: player.lastName,
+				war: Math.max(-1, Math.min(10, -1 + score * 11)),
+			};
+		})
+		.sort((a, b) => b.war - a.war)
+		.slice(0, params.rowCount);
+
+	const seasonFromApi =
+		(hittingSplits[0]?.season ?? pitchingSplits[0]?.season ?? "").trim();
+	const seasonNote =
+		params.showSeasonInTitle && seasonFromApi !== "" ? seasonFromApi : null;
+
+	const rows: MlbStatLeaderRow[] = scored.map((row, index) => ({
+		rank: index + 1,
+		lastName: row.lastName,
+		value: row.war.toFixed(1),
+	}));
+	return {
+		statLabel: "WAR",
+		leagueTag: leagueTagForScope(params.leagueScope),
+		seasonNote,
+		rows,
+	};
+}
+
 /**
  * Fetches leaders and returns the first API split (one category). Stops after `rowCount` display rows;
  * `limit` on the request is oversized so ties still fill the key.
@@ -221,6 +401,10 @@ function valueToString(v: string | number | undefined): string {
 export async function fetchMlbStatLeaders(
 	params: MlbStatLeadersFetchParams,
 ): Promise<MlbStatLeadersBlock> {
+	if (params.statGroup === "derived" && params.leaderCategory === "war") {
+		return fetchDerivedWarLeaders(params);
+	}
+
 	const fetchCap = Math.min(50, Math.max(params.rowCount * 4, params.rowCount + 8));
 	const q = new URLSearchParams();
 	q.set("leaderCategories", params.leaderCategory);
